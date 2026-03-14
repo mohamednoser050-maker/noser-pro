@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOSER PRO - بريد مؤقت مدفوع | نظام احترافي سحابي</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Cairo Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK (v9 Compatibility Mode) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; transition: background-color 0.3s, color 0.3s; }
+        .noser-bg { background-color: #0A2540; }
+        .noser-neon { color: #00FF9D; }
+        .noser-neon-bg { background-color: #00FF9D; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .dark .glass { background: rgba(10, 37, 64, 0.4); border: 1px solid rgba(0, 255, 157, 0.1); }
+        .card-shadow { box-shadow: 0 10px 30px -10px rgba(0, 255, 157, 0.1); }
+        .toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0A2540; }
+        ::-webkit-scrollbar-thumb { background: #00FF9D; border-radius: 10px; }
+        .active-tab { border-bottom: 3px solid #00FF9D; color: #00FF9D; }
+        
+        /* Loading Overlay */
+        #globalLoader {
+            position: fixed; inset: 0; background: #0A2540; z-index: 10000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { noser: { dark: '#0A2540', neon: '#00FF9D', surface: '#112D4E' } } } }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-noser-dark text-slate-800 dark:text-gray-100 min-h-screen">
+
+    <!-- Global Loader -->
+    <div id="globalLoader">
+        <div class="w-20 h-20 noser-neon-bg rounded-3xl flex items-center justify-center text-noser-dark mb-6 animate-pulse">
+            <span class="text-4xl font-black">N</span>
+        </div>
+        <div class="animate-spin rounded-full h-10 w-10 border-4 border-white/10 border-t-noser-neon"></div>
+        <p class="mt-4 noser-neon font-bold">جاري تحميل نظام NOSER PRO السحابي...</p>
+    </div>
+
+    <!-- Auth View -->
+    <div id="authView" class="hidden min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md glass p-10 rounded-[2.5rem] shadow-2xl animate-fadeIn text-center">
+            <div class="mb-10">
+                <div class="w-20 h-20 noser-neon-bg rounded-3xl mx-auto flex items-center justify-center text-noser-dark mb-6 shadow-xl shadow-noser-neon/20">
+                    <span class="text-4xl font-black">N</span>
+                </div>
+                <h1 class="text-4xl font-extrabold noser-neon uppercase tracking-tighter mb-2">NOSER CLOUD</h1>
+                <p class="text-sm opacity-60">سجل دخولك بضغطة زر واحدة وابدأ استخدام بريدك السحابي</p>
+            </div>
+
+            <!-- Google Login Button (Primary & Only Method) -->
+            <button onclick="loginWithGoogle()" class="w-full bg-white text-noser-dark font-black py-5 rounded-2xl hover:bg-gray-100 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-4 text-lg">
+                <svg class="w-6 h-6" viewBox="0 0 48 48">
+                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
+                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
+                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.83-5.195l-6.351-5.231C29.14,35.143,26.67,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
+                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
+                </svg>
+                <span>الدخول بواسطة Google</span>
+            </button>
+
+            <div class="text-center mt-10 pt-8 border-t border-white/10">
+                <p class="text-xs opacity-50 mb-4 text-gray-300">بالتسجيل أنت توافق على شروط خدمة NOSER</p>
+                <a href="https://wa.me/201220671052" target="_blank" class="inline-flex items-center gap-2 text-green-400 hover:text-green-300 font-bold transition-colors">
+                    <span>💬</span> شراء رصيد (واتساب)
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashView" class="hidden min-h-screen flex flex-col">
+        <nav class="glass border-b border-white/10 sticky top-0 z-50">
+            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 noser-neon-bg rounded-lg flex items-center justify-center text-noser-dark font-black">N</div>
+                    <span class="font-black text-xl noser-neon">NOSER CLOUD</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex flex-col text-left items-end">
+                        <span id="navUsername" class="font-bold text-sm truncate max-w-[150px]">...</span>
+                        <span id="navBalance" class="text-xs noser-neon font-bold">رصيدك: 0 إيميل</span>
+                    </div>
+                    <button onclick="logout()" class="bg-red-500/10 text-red-400 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-500/20 transition-all">خروج</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 flex-grow">
+            <aside class="w-full lg:w-80 space-y-6">
+                <div class="glass p-6 rounded-3xl card-shadow">
+                    <h3 class="text-xs font-bold opacity-50 mb-4 uppercase tracking-widest">إدارة الرصيد السحابي</h3>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="text-3xl font-black noser-neon" id="dashBalance">0</div>
+                        <div class="text-sm font-bold opacity-70">إيميلات متبقية</div>
+                    </div>
+                    <button onclick="showActivationModal()" class="w-full bg-white/5 border border-white/10 py-3 rounded-2xl text-sm font-bold hover:bg-white/10 transition-all">🔑 تفعيل كود شحن</button>
+                    <a href="https://wa.me/201220671052" target="_blank" class="w-full mt-3 bg-green-500/10 text-green-400 border border-green-500/20 py-3 rounded-2xl text-sm font-bold hover:bg-green-500/20 transition-all flex items-center justify-center gap-2">💬 اطلب رصيد (واتساب)</a>
+                </div>
+
+                <div class="glass p-6 rounded-3xl flex flex-col max-h-[500px]">
+                    <h3 class="text-xs font-bold opacity-50 mb-4 uppercase tracking-widest">إيميلاتي الدائمة</h3>
+                    <div id="userEmailList" class="space-y-2 overflow-y-auto flex-grow pr-1"></div>
+                </div>
+            </aside>
+
+            <main class="flex-grow flex flex-col gap-6">
+                <div class="glass p-6 rounded-3xl">
+                    <div class="flex flex-col md:flex-row gap-4 items-center">
+                        <input type="text" id="dashCustomName" placeholder="اسم مخصص للمكان (اختياري)" class="flex-grow w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-noser-neon transition-all text-center md:text-right">
+                        <button onclick="generateNewEmail()" id="dashGenBtn" class="w-full md:w-auto noser-neon-bg text-noser-dark font-black px-8 py-4 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-noser-neon/30 flex items-center justify-center gap-2">
+                            <span>توليد إيميل جديد</span>
+                            <div id="dashGenSpinner" class="hidden animate-spin rounded-full h-5 w-5 border-2 border-noser-dark border-t-transparent"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="activeEmailHeader" class="hidden glass p-6 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-4 animate-fadeIn">
+                    <div class="text-center md:text-right">
+                        <span class="text-xs font-bold opacity-50">البريد النشط حالياً:</span>
+                        <div id="dashActiveEmail" class="text-xl md:text-2xl font-black noser-neon tracking-tight break-all">...</div>
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <button onclick="copyDashEmail()" class="flex-1 md:flex-none bg-white/5 border border-white/10 px-6 py-3 rounded-2xl text-sm font-bold hover:bg-white/10 transition-all">📋 نسخ</button>
+                        <button onclick="refreshDashInbox()" class="flex-1 md:flex-none bg-noser-neon/10 text-noser-neon border border-noser-neon/20 px-6 py-3 rounded-2xl text-sm font-bold hover:bg-noser-neon/20 transition-all">🔄 تحديث</button>
+                    </div>
+                </div>
+
+                <div id="dashInboxArea" class="hidden flex-grow flex flex-col gap-4">
+                    <div id="dashMailList" class="space-y-3"></div>
+                    <div id="dashEmptyInbox" class="glass rounded-3xl p-20 text-center flex-grow flex flex-col items-center justify-center">
+                        <div class="text-6xl mb-6">📬</div>
+                        <h4 class="text-2xl font-bold mb-2">صندوق الوارد فارغ</h4>
+                        <p class="opacity-60 max-w-sm">الرسائل ستظهر هنا تلقائياً عند وصولها.</p>
+                    </div>
+                </div>
+
+                <div id="noEmailSelected" class="flex-grow glass rounded-3xl p-20 text-center flex flex-col items-center justify-center animate-fadeIn">
+                    <div class="text-6xl mb-6">📧</div>
+                    <h4 class="text-2xl font-bold mb-2">اختر بريداً للبدء</h4>
+                    <p class="opacity-60 max-w-sm">تصفح إيميلاتك السابقة من القائمة الجانبية أو أنشئ بريداً جديداً.</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Activation Modal -->
+    <div id="activateModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeActivationModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="glass w-full max-w-md p-8 rounded-[2rem] shadow-2xl animate-fadeIn">
+                <h3 class="text-2xl font-black mb-4">تفعيل رصيد جديد</h3>
+                <input type="text" id="dashKeyInput" placeholder="NOSER-XXXX-XX" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-noser-neon transition-all text-center font-mono uppercase tracking-widest mb-6">
+                <div class="flex gap-4">
+                    <button onclick="submitKey()" class="flex-1 noser-neon-bg text-noser-dark font-black py-4 rounded-2xl hover:scale-[1.02] transition-all">تأكيد التفعيل</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Viewer Modal -->
+    <div id="msgViewModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-md" onclick="closeMsgModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="glass w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] overflow-hidden flex flex-col animate-fadeIn">
+                <div class="p-8 border-b border-white/10 flex justify-between items-start">
+                    <div>
+                        <h4 id="msgSubject" class="text-2xl font-black mb-2 noser-neon">...</h4>
+                        <div class="text-sm opacity-60">من: <span id="msgFrom" class="font-bold text-gray-200">...</span></div>
+                    </div>
+                    <button onclick="closeMsgModal()" class="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center text-2xl transition-all">✕</button>
+                </div>
+                <div id="msgContent" class="p-8 overflow-y-auto bg-white text-slate-900 rounded-b-[2.5rem] min-h-[400px]"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        /**
+         * ==========================================
+         *  NOSER PRO - CLOUD CONFIGURATION (FIREBASE)
+         * ==========================================
+         */
+        
+        // 1. ضع إعدادات Firebase الخاصة بك هنا (من Firebase Console)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDTIwozz505qKTXKVpM8uedM1GcQ4Yec1w",
+            authDomain: "noser-pro.firebaseapp.com",
+            projectId: "noser-pro",
+            storageBucket: "noser-pro.firebasestorage.app",
+            messagingSenderId: "66738183490",
+            appId: "1:66738183490:web:bdb5bc71400367a1a5bcdb",
+            measurementId: "G-3DVKKDXFM9"
+        };
+
+        // 2. قائمة الأكواد الصالحة (يتم تحديثها يدوياً)
+        const VALID_KEYS = {
+            "NOSER-MOHAMED-10": 10,
+            "NOSER-GOLD-50": 50,
+            "NOSER-VIP-100": 100,
+            "NOSER-PRO-1000": 1000
+        };
+
+        /** ========================================== **/
+
+        // Initialize Firebase (Check if config is valid)
+        let db, auth;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch(e) {
+            console.warn("Firebase not initialized. Please add your config.");
+        }
+
+        const API_BASE = "https://api.mail.tm";
+        let domains = [];
+        let pollingInterval = null;
+        let lastMsgCount = 0;
+        let activeEmailObj = null;
+        let currentUserData = null;
+
+        // Start
+        window.onload = () => {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    await syncUserData(user.uid);
+                    showDashboard();
+                } else {
+                    document.getElementById('authView').classList.remove('hidden');
+                }
+                document.getElementById('globalLoader').style.opacity = '0';
+                setTimeout(() => document.getElementById('globalLoader').style.display = 'none', 500);
+            });
+            fetchDomains();
+        };
+
+        async function fetchDomains() {
+            try {
+                const res = await fetch(`${API_BASE}/domains`);
+                const data = await res.json();
+                domains = data['hydra:member'] || [];
+            } catch(e) {}
+        }
+
+        // --- CLOUD SYNC LOGIC ---
+        async function syncUserData(uid) {
+            const doc = await db.collection('users').doc(uid).get();
+            if (doc.exists) {
+                currentUserData = doc.data();
+            } else {
+                currentUserData = { username: auth.currentUser.email, balance: 0, emails: [] };
+                await db.collection('users').doc(uid).set(currentUserData);
+            }
+        }
+
+        async function saveCloudData() {
+            if (!auth.currentUser) return;
+            await db.collection('users').doc(auth.currentUser.uid).update(currentUserData);
+            updateDashUI();
+        }
+
+        async function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                await auth.signInWithPopup(provider);
+                showToast("تم تسجيل الدخول بواسطة Google", "success");
+            } catch (e) {
+                console.error(e);
+                showToast("فشل تسجيل الدخول بواسطة جوجل", "error");
+            }
+        }
+
+        function logout() {
+            auth.signOut();
+            location.reload();
+        }
+
+        // --- DASHBOARD UI ---
+        function showDashboard() {
+            document.getElementById('authView').classList.add('hidden');
+            document.getElementById('dashView').classList.remove('hidden');
+            updateDashUI();
+            renderEmailList();
+        }
+
+        function updateDashUI() {
+            document.getElementById('navUsername').textContent = currentUserData.username;
+            document.getElementById('navBalance').textContent = `رصيدك: ${currentUserData.balance} إيميل`;
+            document.getElementById('dashBalance').textContent = currentUserData.balance;
+        }
+
+        async function generateNewEmail() {
+            if (currentUserData.balance <= 0) return showToast("رصيدك منتهي، يرجى الشحن", "error");
+            
+            const btn = document.getElementById('dashGenBtn');
+            const spinner = document.getElementById('dashGenSpinner');
+            btn.disabled = true; spinner.classList.remove('hidden');
+
+            try {
+                const domain = domains[0].domain;
+                let login = document.getElementById('dashCustomName').value.trim();
+                login = login ? login.toLowerCase().replace(/[^a-z0-9]/g, '') : Math.random().toString(36).substring(2, 10);
+                const address = `${login}@${domain}`;
+                const password = Math.random().toString(36).substring(2, 15);
+
+                const createRes = await fetch(`${API_BASE}/accounts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address, password })
+                });
+                if (!createRes.ok) throw new Error();
+                const accData = await createRes.json();
+
+                const tokenRes = await fetch(`${API_BASE}/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address, password })
+                });
+                const tokenData = await tokenRes.json();
+
+                currentUserData.balance--;
+                const newEmail = { address, password, token: tokenData.token, id: accData.id, createdAt: new Date().toISOString() };
+                currentUserData.emails.push(newEmail);
+                await saveCloudData();
+                renderEmailList();
+                setActiveEmail(newEmail);
+                showToast("تم توليد بريد وحفظه في حسابك السحابي", "success");
+            } catch(e) { showToast("فشل توليد البريد", "error"); }
+            btn.disabled = false; spinner.classList.add('hidden');
+        }
+
+        function renderEmailList() {
+            const container = document.getElementById('userEmailList');
+            container.innerHTML = '';
+            if (currentUserData.emails.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 opacity-40 text-xs">لا يوجد إيميلات سحابية</div>';
+                return;
+            }
+            currentUserData.emails.slice().reverse().forEach(email => {
+                const item = document.createElement('div');
+                const isActive = activeEmailObj && activeEmailObj.address === email.address;
+                item.className = `p-3 rounded-xl cursor-pointer transition-all border ${isActive ? 'noser-neon-bg text-noser-dark font-bold' : 'bg-white/5 border-white/10 hover:bg-white/10'}`;
+                item.innerHTML = `<div class="text-sm truncate">${email.address}</div><div class="text-[10px] opacity-60">${new Date(email.createdAt).toLocaleDateString('ar-EG')}</div>`;
+                item.onclick = () => setActiveEmail(email);
+                container.appendChild(item);
+            });
+        }
+
+        function setActiveEmail(email) {
+            activeEmailObj = email;
+            lastMsgCount = 0;
+            document.getElementById('noEmailSelected').classList.add('hidden');
+            document.getElementById('activeEmailHeader').classList.remove('hidden');
+            document.getElementById('dashInboxArea').classList.remove('hidden');
+            document.getElementById('dashActiveEmail').textContent = email.address;
+            document.getElementById('dashMailList').innerHTML = '';
+            renderEmailList();
+            refreshDashInbox();
+            startPolling();
+        }
+
+        async function refreshDashInbox() {
+            if (!activeEmailObj) return;
+            try {
+                const res = await fetch(`${API_BASE}/messages`, {
+                    headers: { 'Authorization': `Bearer ${activeEmailObj.token}` }
+                });
+                const data = await res.json();
+                const messages = data['hydra:member'] || [];
+                const list = document.getElementById('dashMailList');
+                const empty = document.getElementById('dashEmptyInbox');
+
+                if (messages.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+                empty.classList.add('hidden');
+
+                if (messages.length > lastMsgCount) {
+                    if (lastMsgCount > 0) showToast("وصلتك رسالة جديدة!", "success");
+                    lastMsgCount = messages.length;
+                }
+
+                const existingIds = Array.from(list.querySelectorAll('.msg-item')).map(el => el.dataset.id);
+                messages.forEach(msg => {
+                    if (!existingIds.includes(msg.id)) {
+                        const div = document.createElement('div');
+                        div.className = "msg-item glass p-5 rounded-3xl hover:border-noser-neon transition-all cursor-pointer flex justify-between items-center group animate-fadeIn";
+                        div.dataset.id = msg.id;
+                        div.onclick = () => viewMessage(msg.id);
+                        div.innerHTML = `<div class="flex-grow"><h5 class="font-bold text-lg group-hover:noser-neon">${msg.subject || '(بدون عنوان)'}</h5><div class="text-sm opacity-60">${msg.from.address}</div></div><div class="text-noser-neon text-xl group-hover:translate-x-[-5px] transition-transform">←</div>`;
+                        list.prepend(div);
+                    }
+                });
+            } catch(e) {}
+        }
+
+        async function viewMessage(id) {
+            const modal = document.getElementById('msgViewModal');
+            const content = document.getElementById('msgContent');
+            modal.classList.remove('hidden');
+            content.innerHTML = 'جاري التحميل...';
+            try {
+                const res = await fetch(`${API_BASE}/messages/${id}`, {
+                    headers: { 'Authorization': `Bearer ${activeEmailObj.token}` }
+                });
+                const msg = await res.json();
+                document.getElementById('msgSubject').textContent = msg.subject;
+                document.getElementById('msgFrom').textContent = msg.from.address;
+                if (msg.html && msg.html.length > 0) {
+                    content.innerHTML = `<iframe style="width:100%; height:500px; border:none;" srcdoc="${msg.html[0].replace(/"/g, '&quot;')}"></iframe>`;
+                } else {
+                    content.innerHTML = `<pre class="whitespace-pre-wrap">${msg.text}</pre>`;
+                }
+            } catch(e) { content.innerHTML = 'خطأ.'; }
+        }
+
+        function showActivationModal() { document.getElementById('activateModal').classList.remove('hidden'); }
+        function closeActivationModal() { document.getElementById('activateModal').classList.add('hidden'); }
+        async function submitKey() {
+            const key = document.getElementById('dashKeyInput').value.trim().toUpperCase();
+            if (VALID_KEYS[key]) {
+                currentUserData.balance += VALID_KEYS[key];
+                await saveCloudData();
+                showToast(`تم التفعيل! رصيدك الجديد: ${currentUserData.balance}`, "success");
+                document.getElementById('dashKeyInput').value = '';
+                closeActivationModal();
+            } else { showToast("كود غير صحيح", "error"); }
+        }
+
+        function startPolling() { stopPolling(); pollingInterval = setInterval(refreshDashInbox, 5000); }
+        function stopPolling() { if (pollingInterval) clearInterval(pollingInterval); }
+        function closeMsgModal() { document.getElementById('msgViewModal').classList.add('hidden'); }
+        function copyDashEmail() {
+            navigator.clipboard.writeText(activeEmailObj.address).then(() => showToast("تم نسخ الإيميل!", "success"));
+        }
+        function showToast(msg, type = "success") {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = `${type === "success" ? "bg-green-500" : "bg-red-500"} text-white px-8 py-4 rounded-2xl shadow-2xl mb-3 animate-fadeIn font-bold`;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+    </script>
+</body>
+</html>
