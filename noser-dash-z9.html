@@ -403,10 +403,10 @@
             return res;
         }
 
-        const OWNER_EMAIL = "mohamednoser050@gmail.com";
+        const ADMIN_EMAILS = ["mohamednoser050@gmail.com", "abdelhayloai@gmail.com"];
 
         auth.onAuthStateChanged(user => {
-            if (user && user.email === OWNER_EMAIL) {
+            if (user && ADMIN_EMAILS.includes(user.email)) {
                 document.getElementById('adminLayout').classList.remove('hidden');
                 document.getElementById('deniedView').classList.add('hidden');
                 refreshStats();
