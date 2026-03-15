@@ -792,12 +792,13 @@
                 div.dataset.id = msg.id;
                 div.onclick = () => viewMessage(msg.id);
                 
+                const otp = findOTPInMsg(msg);
                 let otpBtn = '';
-                if (msg.otp && msg.otp !== "__DETECTED__") {
-                    otpBtn = `<button onclick="event.stopPropagation(); copyToClipboard('${msg.otp}', 'تم نسخ كود التفعيل!')" class="mr-2 bg-noser-neon/20 text-noser-neon px-3 py-2 rounded-xl text-[10px] font-black border border-noser-neon/30 active:scale-90 transition-transform">📋 كود: ${msg.otp}</button>`;
+                if (otp) {
+                    otpBtn = `<button onclick="event.stopPropagation(); copyToClipboard('${otp}', 'تم نسخ كود التفعيل!')" class="ml-2 bg-noser-neon text-noser-dark px-2.5 py-1.5 rounded-lg text-[10px] font-black active:scale-90 transition-transform flex items-center gap-1 shadow-lg shadow-noser-neon/20">📋 ${otp}</button>`;
                 }
 
-                div.innerHTML = `<div class="flex-grow overflow-hidden"><h5 class="font-bold text-sm md:text-base group-hover:noser-neon truncate">${msg.subject || '(بدون عنوان)'}</h5><div class="text-[10px] md:text-xs opacity-40 truncate">${msg.from}</div></div><div class="flex items-center shrink-0 ml-2">${otpBtn}<div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div></div>`;
+                div.innerHTML = `<div class="flex-grow overflow-hidden text-right"><h5 class="font-bold text-sm md:text-base group-hover:noser-neon truncate">${msg.subject || '(بدون عنوان)'}</h5><div class="text-[10px] md:text-xs opacity-40 truncate">${msg.from}</div></div><div class="flex items-center shrink-0 mr-2">${otpBtn}<div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div></div>`;
                 list.prepend(div);
             }
         }
@@ -910,12 +911,13 @@
                         div.dataset.id = msgId;
                         div.onclick = () => viewMessage(msgId);
                         
+                        const otp = findOTPInMsg(msg);
                         let otpBtn = '';
-                        if (msg.otp && msg.otp !== "__DETECTED__") {
-                            otpBtn = `<button onclick="event.stopPropagation(); copyToClipboard('${msg.otp}', 'تم نسخ كود التفعيل!')" class="mr-2 bg-noser-neon/20 text-noser-neon px-3 py-2 rounded-xl text-[10px] font-black border border-noser-neon/30 active:scale-90 transition-transform">📋 كود: ${msg.otp}</button>`;
+                        if (otp) {
+                            otpBtn = `<button onclick="event.stopPropagation(); copyToClipboard('${otp}', 'تم نسخ كود التفعيل!')" class="ml-2 bg-noser-neon text-noser-dark px-2.5 py-1.5 rounded-lg text-[10px] font-black active:scale-90 transition-transform flex items-center gap-1 shadow-lg shadow-noser-neon/20">📋 ${otp}</button>`;
                         }
 
-                        div.innerHTML = `<div class="flex-grow overflow-hidden"><h5 class="font-bold text-sm md:text-base group-hover:noser-neon truncate">${msg.subject || '(بدون عنوان)'}</h5><div class="text-[10px] md:text-xs opacity-40 truncate">${msg.from}</div></div><div class="flex items-center shrink-0 ml-2">${otpBtn}<div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div></div>`;
+                        div.innerHTML = `<div class="flex-grow overflow-hidden text-right"><h5 class="font-bold text-sm md:text-base group-hover:noser-neon truncate">${msg.subject || '(بدون عنوان)'}</h5><div class="text-[10px] md:text-xs opacity-40 truncate">${msg.from}</div></div><div class="flex items-center shrink-0 mr-2">${otpBtn}<div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div></div>`;
                         list.appendChild(div); // Use appendChild to maintain sorted order
                     });
                 } else {
@@ -1025,6 +1027,17 @@
         function copyToClipboard(text, successMsg = "تم النسخ!") {
             navigator.clipboard.writeText(text).then(() => showToast(successMsg, "success"));
         }
+
+        // Helper to detect OTP in message content
+        function findOTPInMsg(msg) {
+            if (msg.otp && msg.otp !== "__DETECTED__") return msg.otp;
+            
+            // Try to find 4-8 digit numbers in subject or body
+            const searchPool = `${msg.subject || ''} ${msg.text || ''}`.replace(/<[^>]*>?/gm, '');
+            const otpMatch = searchPool.match(/\b\d{4,8}\b/);
+            return otpMatch ? otpMatch[0] : null;
+        }
+
         function scrollToTop() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
