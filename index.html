@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <style>
-        body { font-family: 'Cairo', sans-serif; transition: background-color 0.3s, color 0.3s; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Cairo', sans-serif; transition: background-color 0.3s, color 0.3s; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
         .noser-bg { background-color: #050A18; }
         .noser-neon { color: #00D2FF; }
         .noser-neon-bg { background: #00D2FF; } /* Solid color for a lighter feel */
@@ -36,6 +36,9 @@
         ::-webkit-scrollbar-thumb { background: #00D2FF; border-radius: 10px; }
         .active-tab { border-bottom: 2px solid #00D2FF; color: #00D2FF; }
         
+        /* Allow selection only for specific elements */
+        input, textarea, .select-all { user-select: text !important; -webkit-user-select: text !important; }
+
         /* Mobile Optimization */
         @media (max-width: 768px) {
             .glass { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(255, 255, 255, 0.01); border: none; }
@@ -397,6 +400,23 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <script>
+        // Disable Right-Click
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // Disable Common Developer Tools Shortcuts
+        document.onkeydown = function(e) {
+            // F12
+            if (e.keyCode == 123) return false;
+            // Ctrl+Shift+I (Inspect)
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
+            // Ctrl+Shift+J (Console)
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false;
+            // Ctrl+U (View Source)
+            if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
+            // Ctrl+Shift+C (Element Selector)
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false;
+        };
+
         /**
          * ==========================================
          *  NOSER PRO - CLOUD CONFIGURATION (FIREBASE)
@@ -771,7 +791,13 @@
                 div.className = "msg-item glass p-4 rounded-2xl border-transparent hover:border-noser-neon/20 transition-all cursor-pointer flex justify-between items-center group animate-fadeIn mb-2 touch-active";
                 div.dataset.id = msg.id;
                 div.onclick = () => viewMessage(msg.id);
-                div.innerHTML = `<div class="flex-grow"><h5 class="font-bold text-base group-hover:noser-neon">${msg.subject || '(بدون عنوان)'}</h5><div class="text-xs opacity-40">${msg.from}</div></div><div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div>`;
+                
+                let otpBtn = '';
+                if (msg.otp && msg.otp !== "__DETECTED__") {
+                    otpBtn = `<button onclick="event.stopPropagation(); copyToClipboard('${msg.otp}', 'تم نسخ كود التفعيل!')" class="mr-2 bg-noser-neon/20 text-noser-neon px-3 py-2 rounded-xl text-[10px] font-black border border-noser-neon/30 active:scale-90 transition-transform">📋 كود: ${msg.otp}</button>`;
+                }
+
+                div.innerHTML = `<div class="flex-grow overflow-hidden"><h5 class="font-bold text-sm md:text-base group-hover:noser-neon truncate">${msg.subject || '(بدون عنوان)'}</h5><div class="text-[10px] md:text-xs opacity-40 truncate">${msg.from}</div></div><div class="flex items-center shrink-0 ml-2">${otpBtn}<div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div></div>`;
                 list.prepend(div);
             }
         }
@@ -883,7 +909,13 @@
                         const msgId = msg.id || msg.message_id || msg.uid || msg.id_message;
                         div.dataset.id = msgId;
                         div.onclick = () => viewMessage(msgId);
-                        div.innerHTML = `<div class="flex-grow"><h5 class="font-bold text-base group-hover:noser-neon">${msg.subject || '(بدون عنوان)'}</h5><div class="text-xs opacity-40">${msg.from}</div></div><div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div>`;
+                        
+                        let otpBtn = '';
+                        if (msg.otp && msg.otp !== "__DETECTED__") {
+                            otpBtn = `<button onclick="event.stopPropagation(); copyToClipboard('${msg.otp}', 'تم نسخ كود التفعيل!')" class="mr-2 bg-noser-neon/20 text-noser-neon px-3 py-2 rounded-xl text-[10px] font-black border border-noser-neon/30 active:scale-90 transition-transform">📋 كود: ${msg.otp}</button>`;
+                        }
+
+                        div.innerHTML = `<div class="flex-grow overflow-hidden"><h5 class="font-bold text-sm md:text-base group-hover:noser-neon truncate">${msg.subject || '(بدون عنوان)'}</h5><div class="text-[10px] md:text-xs opacity-40 truncate">${msg.from}</div></div><div class="flex items-center shrink-0 ml-2">${otpBtn}<div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div></div>`;
                         list.appendChild(div); // Use appendChild to maintain sorted order
                     });
                 } else {
