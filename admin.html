@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noser X Admin - لوحة الإدارة</title>
+    <link rel="icon" href="https://i.postimg.cc/DfCpvrbn/79e5449c-178e-4f1c-a2fa-59f471b00ddf-1-removebg-preview.png" type="image/png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #050A18; color: #E2E8F0; }
+        .noser-neon { color: #00D2FF; }
+        .noser-neon-bg { background: linear-gradient(135deg, #00D2FF 0%, #9D50BB 100%); }
+        .glass { background: rgba(13, 20, 37, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(0, 210, 255, 0.1); }
+        .noser-glow { text-shadow: 0 0 15px rgba(0, 210, 255, 0.5); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #050A18; }
+        ::-webkit-scrollbar-thumb { background: #00D2FF; border-radius: 10px; }
+    </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    colors: { 
+                        noser: { dark: '#050A18', neon: '#00D2FF', accent: '#9D50BB', surface: '#0D1425' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Access Denied View -->
+    <div id="deniedView" class="hidden fixed inset-0 z-[200] bg-noser-dark flex flex-col items-center justify-center p-6 text-center">
+        <div class="text-8xl mb-8">🚫</div>
+        <h1 class="text-4xl font-black text-red-500 mb-4">دخول غير مصرح به</h1>
+        <p class="opacity-60 max-w-md mb-8 text-lg">هذه الصفحة مخصصة لمالك الموقع فقط (Mohamed Noser). سيتم تحويلك للصفحة الرئيسية.</p>
+        <a href="index.html" class="px-10 py-4 bg-white/5 border border-white/10 rounded-2xl font-bold hover:bg-white/10 transition-all">العودة للرئيسية</a>
+    </div>
+
+    <!-- Main Admin Layout -->
+    <div id="adminLayout" class="hidden flex-grow flex flex-col">
+        <!-- Header -->
+        <header class="glass border-b border-white/10 sticky top-0 z-50">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 p-1 bg-noser-neon rounded-2xl shadow-lg shadow-noser-neon/20">
+                        <img src="https://i.postimg.cc/yxtQ6j5y/79e5449c-178e-4f1c-a2fa-59f471b00ddf-(1).jpg" class="w-full h-full object-cover rounded-xl">
+                    </div>
+                    <div>
+                        <h1 class="font-black text-2xl noser-neon leading-tight">Noser <span class="text-white opacity-20 font-light">X</span> Admin</h1>
+                        <p class="text-[10px] opacity-40 uppercase tracking-widest font-bold">Control Center</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex gap-4">
+                        <div class="glass px-6 py-3 rounded-2xl text-center border-noser-neon/30 border">
+                            <div id="adminStatOnline" class="text-xl font-black text-green-400">0</div>
+                            <div class="text-[10px] opacity-50 font-bold uppercase">متصل الآن</div>
+                        </div>
+                        <div class="glass px-6 py-3 rounded-2xl text-center">
+                            <div id="adminStatUsers" class="text-xl font-black noser-neon">0</div>
+                            <div class="text-[10px] opacity-50 font-bold uppercase">مستخدم</div>
+                        </div>
+                        <div class="glass px-6 py-3 rounded-2xl text-center">
+                            <div id="adminStatKeys" class="text-xl font-black noser-neon">0</div>
+                            <div class="text-[10px] opacity-50 font-bold uppercase">مفتاح نشط</div>
+                        </div>
+                    </div>
+                    <div class="hidden md:flex flex-col items-end">
+                        <span id="adminName" class="font-bold text-sm">Mohamed Noser</span>
+                        <span class="text-[10px] noser-neon font-bold uppercase tracking-widest">System Owner</span>
+                    </div>
+                    <a href="index.html" class="bg-white/5 border border-white/10 px-6 py-3 rounded-2xl text-sm font-bold hover:bg-white/10 transition-all flex items-center gap-2">
+                        <span>العودة للموقع</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-6 py-10 flex-grow flex flex-col lg:flex-row gap-8">
+            <!-- Sidebar / Stats -->
+            <aside class="lg:w-80 flex flex-col gap-6">
+                <div class="glass p-8 rounded-[2.5rem] text-center">
+                    <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-4">إحصائيات المستخدمين</div>
+                    <div id="statUsers" class="text-5xl font-black noser-neon mb-2">0</div>
+                    <div class="text-xs font-bold opacity-60 uppercase">مستخدم مسجل</div>
+                </div>
+
+                <div class="glass p-8 rounded-[2.5rem] text-center">
+                    <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-4">المفاتيح النشطة</div>
+                    <div id="statKeys" class="text-5xl font-black noser-neon mb-2">0</div>
+                    <div class="text-xs font-bold opacity-60 uppercase">مفتاح متاح للشحن</div>
+                </div>
+
+                    <nav class="flex flex-col gap-2">
+                        <button onclick="switchTab('gen')" id="btn-gen" class="w-full text-right px-8 py-5 rounded-2xl font-bold transition-all noser-neon-bg text-noser-dark shadow-lg shadow-noser-neon/20">🚀 توليد مفاتيح جديدة</button>
+                        <button onclick="switchTab('keys')" id="btn-keys" class="w-full text-right px-8 py-5 rounded-2xl font-bold transition-all hover:bg-white/5 opacity-60">🔑 إدارة المفاتيح</button>
+                        <button onclick="switchTab('users')" id="btn-users" class="w-full text-right px-8 py-5 rounded-2xl font-bold transition-all hover:bg-white/5 opacity-60">👥 قائمة المستخدمين</button>
+                        <button onclick="switchTab('api')" id="btn-api" class="w-full text-right px-8 py-5 rounded-2xl font-bold transition-all hover:bg-white/5 opacity-60">⚙️ إعدادات الـ API</button>
+                        <button onclick="switchTab('stats')" id="btn-stats" class="w-full text-right px-8 py-5 rounded-2xl font-bold transition-all hover:bg-white/5 opacity-60">📊 إحصائيات شاملة</button>
+                    </nav>
+
+                    <div class="mt-auto pt-6 border-t border-white/5">
+                        <button onclick="showNuclearModal()" class="w-full text-right px-8 py-5 rounded-2xl font-bold text-red-500 hover:bg-red-500/10 transition-all flex items-center justify-between group">
+                            <span>💣 تصفير الموقع بالكامل</span>
+                            <span class="opacity-0 group-hover:opacity-100 transition-opacity">🔥</span>
+                        </button>
+                    </div>
+                </aside>
+
+            <!-- Content Area -->
+            <section class="flex-grow flex flex-col gap-6">
+                <!-- Tab: Generate -->
+                <div id="tab-gen" class="glass p-10 rounded-[3rem] animate-fadeIn">
+                    <h2 class="text-3xl font-black mb-8">توليد مفاتيح شحن رصيد</h2>
+                    
+                    <div class="flex gap-4 mb-8 bg-white/5 p-1.5 rounded-2xl">
+                        <button onclick="toggleGenMode('auto')" id="mode-auto" class="flex-1 py-3 rounded-xl font-bold text-xs transition-all noser-neon-bg text-noser-dark">توليد تلقائي</button>
+                        <button onclick="toggleGenMode('manual')" id="mode-manual" class="flex-1 py-3 rounded-xl font-bold text-xs transition-all hover:bg-white/5 opacity-60">مفتاح مخصص</button>
+                    </div>
+
+                    <div id="gen-auto-fields" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                        <div class="space-y-3">
+                            <label class="block text-xs font-bold opacity-40 uppercase tracking-widest mr-2">قيمة الرصيد (PT)</label>
+                            <input type="number" id="keyVal" value="100" class="w-full bg-white/5 border border-white/10 rounded-2xl px-8 py-5 outline-none focus:border-noser-neon transition-all text-2xl font-black text-center noser-neon">
+                        </div>
+                        <div class="space-y-3">
+                            <label class="block text-xs font-bold opacity-40 uppercase tracking-widest mr-2">عدد المفاتيح</label>
+                            <input type="number" id="keyCount" value="10" class="w-full bg-white/5 border border-white/10 rounded-2xl px-8 py-5 outline-none focus:border-noser-neon transition-all text-2xl font-black text-center">
+                        </div>
+                    </div>
+
+                    <div id="gen-manual-fields" class="hidden space-y-6 mb-10">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-3">
+                                <label class="block text-xs font-bold opacity-40 uppercase tracking-widest mr-2">نص المفتاح المخصص</label>
+                                <input type="text" id="manualKeyId" placeholder="مثال: NOSER-VIP-GIFT" class="w-full bg-white/5 border border-white/10 rounded-2xl px-8 py-5 outline-none focus:border-noser-neon transition-all text-xl font-black text-center uppercase">
+                            </div>
+                            <div class="space-y-3">
+                                <label class="block text-xs font-bold opacity-40 uppercase tracking-widest mr-2">قيمة الرصيد (PT)</label>
+                                <input type="number" id="manualKeyVal" value="500" class="w-full bg-white/5 border border-white/10 rounded-2xl px-8 py-5 outline-none focus:border-noser-neon transition-all text-2xl font-black text-center noser-neon">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="processKeyGeneration()" id="genBtn" class="w-full noser-neon-bg text-noser-dark font-black py-6 rounded-3xl hover:scale-[1.01] active:scale-95 transition-all shadow-2xl flex items-center justify-center gap-4 text-xl group">
+                        <span id="genBtnText">🚀 توليد ورفع المفاتيح فوراً</span>
+                        <div id="genSpinner" class="hidden animate-spin rounded-full h-7 w-7 border-4 border-noser-dark border-t-transparent"></div>
+                    </button>
+                    <div id="genResult" class="hidden mt-10 bg-black/40 border border-white/5 rounded-3xl p-8 max-h-60 overflow-y-auto font-mono text-sm text-noser-neon cyber-border"></div>
+                </div>
+
+                <!-- Tab: Keys -->
+                <div id="tab-keys" class="hidden flex-grow flex flex-col gap-6 animate-fadeIn">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-3xl font-black">إدارة المفاتيح</h2>
+                        <div class="flex gap-2">
+                            <select id="keyFilter" onchange="refreshKeys()" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-noser-neon">
+                                <option value="all">الكل</option>
+                                <option value="100">فئة 100</option>
+                                <option value="500">فئة 500</option>
+                                <option value="1000">فئة 1000</option>
+                            </select>
+                            <button onclick="refreshKeys()" class="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all noser-neon text-xs font-bold">🔄 تحديث</button>
+                        </div>
+                    </div>
+                    <div id="keysList" class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pr-2"></div>
+                </div>
+
+                <!-- Tab: Users -->
+                <div id="tab-users" class="hidden flex-grow flex flex-col gap-6 animate-fadeIn">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-3xl font-black">المستخدمين</h2>
+                        <button onclick="refreshUsers()" class="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all noser-neon text-xs font-bold">🔄 تحديث</button>
+                    </div>
+                    <div id="usersList" class="space-y-4 overflow-y-auto pr-2"></div>
+                </div>
+
+                <!-- Tab: API Keys -->
+                <div id="tab-api" class="hidden flex-grow flex flex-col gap-6 animate-fadeIn">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-3xl font-black">إعدادات الـ API</h2>
+                        <button onclick="refreshAPIKeys()" class="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all noser-neon text-xs font-bold">🔄 تحديث</button>
+                    </div>
+                    
+                    <div id="apiCardContainer" class="space-y-4">
+                        <!-- Dynamic API Card will appear here -->
+                    </div>
+
+                    <div id="apiTestResult" class="hidden p-6 rounded-2xl text-center font-bold animate-fadeIn"></div>
+                </div>
+
+                <!-- Tab: Stats -->
+                <div id="tab-stats" class="hidden flex-grow flex flex-col gap-8 animate-fadeIn">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-3xl font-black">إحصائيات شاملة</h2>
+                        <button onclick="refreshDetailedStats()" class="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all noser-neon text-xs font-bold">🔄 تحديث البيانات</button>
+                    </div>
+                    
+                    <!-- Main Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="glass p-6 rounded-[2rem] border-noser-neon/20 border relative overflow-hidden group">
+                            <div class="absolute -top-4 -right-4 text-5xl opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform">📧</div>
+                            <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-1">إجمالي الإيميلات</div>
+                            <div id="statTotalEmails" class="text-3xl font-black noser-neon">0</div>
+                            <div class="mt-3 flex items-center justify-between">
+                                <span id="statEmailsToday" class="text-[10px] font-bold text-green-400">اليوم: +0</span>
+                                <span id="statEmailsWeek" class="text-[10px] font-bold opacity-40">أسبوع: +0</span>
+                            </div>
+                        </div>
+                        <div class="glass p-6 rounded-[2rem] border-noser-neon/20 border relative overflow-hidden group">
+                            <div class="absolute -top-4 -right-4 text-5xl opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform">📥</div>
+                            <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-1">الرسائل الواردة</div>
+                            <div id="statTotalMessages" class="text-3xl font-black text-white">0</div>
+                            <div class="mt-3 flex items-center justify-between">
+                                <span id="statMsgsToday" class="text-[10px] font-bold text-green-400">اليوم: +0</span>
+                                <span id="statMsgsWeek" class="text-[10px] font-bold opacity-40">أسبوع: +0</span>
+                            </div>
+                        </div>
+                        <div class="glass p-6 rounded-[2rem] border-noser-neon/20 border relative overflow-hidden group">
+                            <div class="absolute -top-4 -right-4 text-5xl opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform">👤</div>
+                            <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-1">المستخدمين</div>
+                            <div id="statTotalUsers" class="text-3xl font-black text-white">0</div>
+                            <div class="mt-3 flex items-center justify-between">
+                                <span id="statUsersToday" class="text-[10px] font-bold text-green-400">اليوم: +0</span>
+                                <span id="statUsersWeek" class="text-[10px] font-bold opacity-40">أسبوع: +0</span>
+                            </div>
+                        </div>
+                        <div class="glass p-6 rounded-[2rem] border-noser-neon/20 border relative overflow-hidden group">
+                            <div class="absolute -top-4 -right-4 text-5xl opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform">💰</div>
+                            <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-1">الرصيد المستخدم</div>
+                            <div id="statUsedBalance" class="text-3xl font-black text-white">0</div>
+                            <div class="mt-3 text-[10px] font-bold opacity-40">
+                                متاح: <span id="statAvailableBalance" class="noser-neon">0 PT</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Chart Section -->
+                        <div class="glass p-8 rounded-[3rem] border border-white/5">
+                            <h3 class="text-lg font-black mb-6 flex items-center gap-3">
+                                <span class="w-2 h-6 noser-neon-bg rounded-full"></span>
+                                نشاط التوليد (آخر 7 أيام)
+                            </h3>
+                            <div id="statsActivityChart" class="flex items-end justify-between gap-2 h-48 px-4 pt-10">
+                                <!-- Bars will be generated here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Key Distribution -->
+                        <div class="glass p-8 rounded-[3rem] border border-white/5">
+                            <h3 class="text-lg font-black mb-6 flex items-center gap-3">
+                                <span class="w-2 h-6 bg-purple-500 rounded-full"></span>
+                                توزيع المفاتيح النشطة
+                            </h3>
+                            <div id="statsKeyDistribution" class="space-y-6">
+                                <!-- Bars will appear here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="py-10 text-center opacity-30 text-[10px] font-bold tracking-widest uppercase border-t border-white/5">
+            &copy; 2026 Noser X Admin System. All Rights Reserved. <br> 
+            <span class="noser-neon">Mohamed Noser Control Center</span>
+        </footer>
+    </div>
+
+    <!-- Nuclear Reset Modal -->
+    <div id="nuclearModal" class="fixed inset-0 z-[300] hidden">
+        <div class="absolute inset-0 bg-black/95 backdrop-blur-xl" onclick="closeNuclearModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-6">
+            <div class="glass w-full max-w-lg p-12 rounded-[3rem] border-red-500/30 border-2 shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-fadeIn text-center relative overflow-hidden">
+                <!-- Warning Icon Background -->
+                <div class="absolute -top-10 -right-10 text-[200px] opacity-[0.03] select-none pointer-events-none rotate-12">⚠️</div>
+                
+                <div class="w-24 h-24 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center text-5xl mx-auto mb-8 animate-pulse">☢️</div>
+                
+                <h3 class="text-4xl font-black text-white mb-4">عملية تصفير شاملة!</h3>
+                <p class="text-red-400 font-bold mb-8 leading-relaxed">تحذير: هذا الإجراء سيقوم بمسح كافة المستخدمين، المفاتيح، الإحصائيات، وسجلات الموقع بالكامل. لا يمكن التراجع عن هذا القرار!</p>
+                
+                <div class="space-y-6">
+                    <p class="text-xs opacity-50 uppercase tracking-[0.3em] font-black">اكتب كلمة NOSER للتأكيد</p>
+                    <input type="text" id="nuclearConfirmInput" placeholder="NOSER" class="w-full bg-red-500/5 border border-red-500/20 rounded-2xl px-8 py-5 outline-none focus:border-red-500 transition-all text-center text-3xl font-black tracking-[0.5em] text-white">
+                    
+                    <div class="flex flex-col gap-4">
+                        <button onclick="executeNuclearReset()" id="nuclearBtn" class="w-full bg-red-600 text-white font-black py-6 rounded-3xl hover:bg-red-500 transition-all shadow-xl shadow-red-600/20 flex items-center justify-center gap-4 group">
+                            <span id="nuclearBtnText">تأكيد المسح الشامل والنهائي</span>
+                            <div id="nuclearSpinner" class="hidden animate-spin rounded-full h-6 w-6 border-4 border-white border-t-transparent"></div>
+                        </button>
+                        <button onclick="closeNuclearModal()" class="py-4 text-sm font-bold opacity-40 hover:opacity-100 transition-opacity">إلغاء العملية</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Config & Logic -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDTIwozz505qKTXKVpM8uedM1GcQ4Yec1w",
+            authDomain: "noser-pro.firebaseapp.com",
+            projectId: "noser-pro",
+            storageBucket: "noser-pro.appspot.com",
+            messagingSenderId: "386623668102",
+            appId: "1:386623668102:web:78672027e0892095f9399b"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const API_BASE = "https://api2.freecustom.email/v1";
+        let lastRequestTime = 0;
+        let activeApiKey = null;
+
+        async function getActiveApiKey() {
+            try {
+                const doc = await db.collection('settings').doc('api').get();
+                if (doc.exists) {
+                    activeApiKey = doc.data().key;
+                    return activeApiKey;
+                }
+                // Initial creation if not exists
+                const initialKey = "fce_3cef98aad3ab424a0aad1d1a13b4fb7681c9f00cc6141693b9364ee47e89ea84";
+                await db.collection('settings').doc('api').set({
+                    key: initialKey,
+                    usage: 0,
+                    limit: 5000,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                activeApiKey = initialKey;
+                return activeApiKey;
+            } catch (err) { 
+                console.error(err);
+                return "fce_3cef98aad3ab424a0aad1d1a13b4fb7681c9f00cc6141693b9364ee47e89ea84"; 
+            }
+        }
+
+        async function fceFetch(url, options = {}, retryCount = 0) {
+            if (!activeApiKey) activeApiKey = await getActiveApiKey();
+            const now = Date.now();
+            const timeSinceLast = now - lastRequestTime;
+            if (timeSinceLast < 1100) await new Promise(r => setTimeout(r, 1100 - timeSinceLast));
+            
+            const res = await fetch(url, {
+                ...options,
+                headers: { ...options.headers, 'Authorization': `Bearer ${activeApiKey}` }
+            });
+            lastRequestTime = Date.now();
+
+            if (res.ok) {
+                db.collection('settings').doc('api').update({ 
+                    usage: firebase.firestore.FieldValue.increment(1),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(() => {});
+            }
+            return res;
+        }
+
+        const OWNER_EMAIL = "mohamednoser050@gmail.com";
+
+        // Improved Auth Protection
+        let authChecked = false;
+        auth.onAuthStateChanged(user => {
+            authChecked = true;
+            if (user && user.email === OWNER_EMAIL) {
+                document.getElementById('adminLayout').classList.remove('hidden');
+                document.getElementById('deniedView').classList.add('hidden');
+                refreshStats();
+            } else {
+                // Show denied only if we are sure user is NOT the owner
+                document.getElementById('deniedView').classList.remove('hidden');
+                document.getElementById('adminLayout').classList.add('hidden');
+                if (user || authChecked) {
+                    setTimeout(() => window.location.href = 'index.html', 3000);
+                }
+            }
+        });
+
+        function switchTab(tab) {
+            const tabs = ['gen', 'keys', 'users', 'stats', 'api'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`btn-${t}`);
+                if (el) el.classList.add('hidden');
+                if (btn) {
+                    btn.classList.remove('noser-neon-bg', 'text-noser-dark', 'shadow-lg', 'shadow-noser-neon/20');
+                    btn.classList.add('hover:bg-white/5', 'opacity-60');
+                }
+            });
+
+            const targetTab = document.getElementById(`tab-${tab}`);
+            const targetBtn = document.getElementById(`btn-${tab}`);
+            if (targetTab) targetTab.classList.remove('hidden');
+            if (targetBtn) {
+                targetBtn.classList.add('noser-neon-bg', 'text-noser-dark', 'shadow-lg', 'shadow-noser-neon/20');
+                targetBtn.classList.remove('hover:bg-white/5', 'opacity-60');
+            }
+
+            if (tab === 'keys') refreshKeys();
+            if (tab === 'users') refreshUsers();
+            if (tab === 'stats') refreshDetailedStats();
+            if (tab === 'api') refreshAPIKeys();
+        }
+
+        async function refreshStats() {
+            try {
+                const usersSnap = await db.collection('users').get();
+                const onlineSnap = await db.collection('users').where('isOnline', '==', true).get();
+                const keysSnap = await db.collection('keys').where('status', '==', 'active').get();
+                
+                document.getElementById('adminStatOnline').textContent = onlineSnap.size;
+                document.getElementById('adminStatUsers').textContent = usersSnap.size;
+                document.getElementById('adminStatKeys').textContent = keysSnap.size;
+                
+                document.getElementById('statUsers').textContent = usersSnap.size;
+                document.getElementById('statKeys').textContent = keysSnap.size;
+            } catch (err) { console.error(err); }
+        }
+
+        function toggleGenMode(mode) {
+            const autoBtn = document.getElementById('mode-auto');
+            const manualBtn = document.getElementById('mode-manual');
+            const autoFields = document.getElementById('gen-auto-fields');
+            const manualFields = document.getElementById('gen-manual-fields');
+
+            if (mode === 'auto') {
+                autoBtn.classList.add('noser-neon-bg', 'text-noser-dark');
+                autoBtn.classList.remove('hover:bg-white/5', 'opacity-60');
+                manualBtn.classList.remove('noser-neon-bg', 'text-noser-dark');
+                manualBtn.classList.add('hover:bg-white/5', 'opacity-60');
+                autoFields.classList.remove('hidden');
+                manualFields.classList.add('hidden');
+                document.getElementById('genBtnText').textContent = "🚀 توليد ورفع المفاتيح فوراً";
+            } else {
+                manualBtn.classList.add('noser-neon-bg', 'text-noser-dark');
+                manualBtn.classList.remove('hover:bg-white/5', 'opacity-60');
+                autoBtn.classList.remove('noser-neon-bg', 'text-noser-dark');
+                autoBtn.classList.add('hover:bg-white/5', 'opacity-60');
+                manualFields.classList.remove('hidden');
+                autoFields.classList.add('hidden');
+                document.getElementById('genBtnText').textContent = "✨ إنشاء المفتاح المخصص";
+            }
+        }
+
+        async function processKeyGeneration() {
+            const isManual = !document.getElementById('gen-manual-fields').classList.contains('hidden');
+            if (isManual) {
+                await generateManualKey();
+            } else {
+                await generateAutoKeys();
+            }
+        }
+
+        async function generateAutoKeys() {
+            const val = parseInt(document.getElementById('keyVal').value);
+            const count = parseInt(document.getElementById('keyCount').value);
+            const btn = document.getElementById('genBtn');
+            const spinner = document.getElementById('genSpinner');
+            const resBox = document.getElementById('genResult');
+
+            if (isNaN(val) || isNaN(count) || val <= 0 || count <= 0) return alert("قيم غير صحيحة");
+            
+            btn.disabled = true; spinner.classList.remove('hidden');
+            resBox.classList.remove('hidden'); resBox.innerHTML = "جاري التوليد والرفع...";
+
+            try {
+                const batch = db.batch();
+                const generated = [];
+                for (let i = 0; i < count; i++) {
+                    const rnd = Math.random().toString(36).substring(2, 10).toUpperCase();
+                    const keyId = `NOSER-KEY-PT${val}-${rnd}`;
+                    batch.set(db.collection('keys').doc(keyId), {
+                        value: val, status: 'active', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    generated.push(keyId);
+                }
+                await batch.commit();
+                resBox.innerHTML = `<div class="text-white font-bold mb-4">✅ تم توليد ${count} مفتاح بنجاح:</div>` + generated.join('<br>');
+                refreshStats();
+            } catch (err) { resBox.innerHTML = "فشل الرفع!"; }
+            finally { btn.disabled = false; spinner.classList.add('hidden'); }
+        }
+
+        async function generateManualKey() {
+            const keyId = document.getElementById('manualKeyId').value.trim().toUpperCase();
+            const val = parseInt(document.getElementById('manualKeyVal').value);
+            const btn = document.getElementById('genBtn');
+            const spinner = document.getElementById('genSpinner');
+            const resBox = document.getElementById('genResult');
+
+            if (!keyId || isNaN(val) || val <= 0) return alert("يرجى إدخال نص المفتاح وقيمة صحيحة");
+            
+            btn.disabled = true; spinner.classList.remove('hidden');
+            resBox.classList.remove('hidden'); resBox.innerHTML = "جاري إنشاء المفتاح...";
+
+            try {
+                const doc = await db.collection('keys').doc(keyId).get();
+                if (doc.exists) {
+                    throw new Error("هذا المفتاح موجود بالفعل!");
+                }
+                await db.collection('keys').doc(keyId).set({
+                    value: val, status: 'active', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                resBox.innerHTML = `<div class="text-white font-bold mb-4">✅ تم إنشاء المفتاح المخصص بنجاح:</div><div class="text-noser-neon">${keyId}</div>`;
+                refreshStats();
+            } catch (err) { resBox.innerHTML = "فشل: " + err.message; }
+            finally { btn.disabled = false; spinner.classList.add('hidden'); }
+        }
+
+        async function refreshKeys() {
+            const list = document.getElementById('keysList');
+            const filter = document.getElementById('keyFilter').value;
+            list.innerHTML = '<div class="col-span-2 text-center py-20 opacity-40">جاري التحميل...</div>';
+            try {
+                let query = db.collection('keys').orderBy('createdAt', 'desc');
+                if (filter !== 'all') {
+                    query = query.where('value', '==', parseInt(filter));
+                }
+                const snap = await query.limit(100).get();
+                list.innerHTML = '';
+                
+                // Grouping Logic
+                const grouped = {};
+                snap.forEach(doc => {
+                    const k = doc.data();
+                    const val = k.value;
+                    if (!grouped[val]) grouped[val] = [];
+                    grouped[val].push({ id: doc.id, ...k });
+                });
+
+                const sortedValues = Object.keys(grouped).sort((a, b) => b - a);
+                
+                if (sortedValues.length === 0) {
+                    list.innerHTML = '<div class="col-span-2 text-center py-20 opacity-40">لا توجد مفاتيح</div>';
+                    return;
+                }
+
+                sortedValues.forEach(val => {
+                    const groupTitle = document.createElement('div');
+                    groupTitle.className = "col-span-1 md:col-span-2 mt-6 mb-2 flex items-center gap-4";
+                    groupTitle.innerHTML = `
+                        <div class="h-px flex-grow bg-white/5"></div>
+                        <span class="text-xs font-black uppercase tracking-widest opacity-40 whitespace-nowrap">فئة ${val} PT</span>
+                        <button onclick="downloadCategoryKeys(${val})" class="flex items-center gap-2 bg-noser-neon/10 hover:bg-noser-neon/20 text-noser-neon px-4 py-2 rounded-xl text-[10px] font-bold transition-all border border-noser-neon/20">
+                            <span>⬇️ تحميل الفئة</span>
+                        </button>
+                        <div class="h-px flex-grow bg-white/5"></div>
+                    `;
+                    list.appendChild(groupTitle);
+
+                    grouped[val].forEach(k => {
+                        const div = document.createElement('div');
+                        div.className = "glass p-6 rounded-3xl flex justify-between items-center border border-white/5 group hover:border-noser-neon transition-all";
+                        div.innerHTML = `
+                            <div class="flex flex-col">
+                                <span class="font-mono text-noser-neon font-black text-sm mb-1">${k.id}</span>
+                                <span class="text-[10px] font-bold opacity-40 uppercase">${k.value} PT • ${k.status === 'active' ? '<span class="text-green-400">نشط</span>' : '<span class="text-red-400">مستخدم</span>'}</span>
+                            </div>
+                            <button onclick="deleteKey('${k.id}')" class="p-3 hover:bg-red-500/20 text-red-400 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        `;
+                        list.appendChild(div);
+                    });
+                });
+            } catch (err) { 
+                console.error(err);
+                list.innerHTML = "خطأ في تحميل المفاتيح"; 
+            }
+        }
+
+        async function refreshDetailedStats() {
+            const stats = {
+                emails: { total: 0, today: 0, week: 0 },
+                msgs: { total: 0, today: 0, week: 0 },
+                users: { total: 0, today: 0, week: 0 },
+                balance: { used: 0, available: 0 },
+                dailyActivity: {} // Key: YYYY-MM-DD
+            };
+
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+            try {
+                // 1. Fetch Users & Their Activity
+                const usersSnap = await db.collection('users').get();
+                stats.users.total = usersSnap.size;
+
+                usersSnap.forEach(doc => {
+                    const u = doc.data();
+                    stats.balance.used += (u.balance || 0);
+                    
+                    // User Registration Stats (using createdAt if available, or lastActive as fallback)
+                    const regDate = u.createdAt ? u.createdAt.toDate() : (u.lastActive ? u.lastActive.toDate() : null);
+                    if (regDate) {
+                        if (regDate > new Date(now.setHours(0,0,0,0))) stats.users.today++;
+                        if (regDate > lastWeek) stats.users.week++;
+                    }
+
+                    // Emails Stats
+                    const userEmails = u.emails || [];
+                    stats.emails.total += userEmails.length;
+
+                    userEmails.forEach(em => {
+                        const emDate = new Date(em.createdAt);
+                        const dateStr = emDate.toISOString().split('T')[0];
+                        
+                        // Daily Activity Tracking
+                        if (emDate > lastWeek) {
+                            stats.dailyActivity[dateStr] = (stats.dailyActivity[dateStr] || 0) + 1;
+                        }
+
+                        if (emDate > new Date(new Date().setHours(0,0,0,0))) stats.emails.today++;
+                        if (emDate > lastWeek) stats.emails.week++;
+
+                        // Messages Stats
+                        const msgs = em.messages || [];
+                        stats.msgs.total += msgs.length;
+                        msgs.forEach(m => {
+                            const mDate = new Date(m.date || m.createdAt || 0);
+                            if (mDate > new Date(new Date().setHours(0,0,0,0))) stats.msgs.today++;
+                            if (mDate > lastWeek) stats.msgs.week++;
+                        });
+                    });
+                });
+
+                // 2. Fetch Keys
+                const keysSnap = await db.collection('keys').where('status', '==', 'active').get();
+                const distribution = {};
+                keysSnap.forEach(doc => {
+                    const k = doc.data();
+                    stats.balance.available += (k.value || 0);
+                    distribution[k.value] = (distribution[k.value] || 0) + 1;
+                });
+
+                // 3. Update UI Cards
+                document.getElementById('statTotalEmails').textContent = stats.emails.total.toLocaleString();
+                document.getElementById('statEmailsToday').textContent = `اليوم: +${stats.emails.today}`;
+                document.getElementById('statEmailsWeek').textContent = `أسبوع: +${stats.emails.week}`;
+
+                document.getElementById('statTotalMessages').textContent = stats.msgs.total.toLocaleString();
+                document.getElementById('statMsgsToday').textContent = `اليوم: +${stats.msgs.today}`;
+                document.getElementById('statMsgsWeek').textContent = `أسبوع: +${stats.msgs.week}`;
+
+                document.getElementById('statTotalUsers').textContent = stats.users.total.toLocaleString();
+                document.getElementById('statUsersToday').textContent = `اليوم: +${stats.users.today}`;
+                document.getElementById('statUsersWeek').textContent = `أسبوع: +${stats.users.week}`;
+
+                document.getElementById('statUsedBalance').textContent = stats.balance.used.toLocaleString() + " PT";
+                document.getElementById('statAvailableBalance').textContent = stats.balance.available.toLocaleString() + " PT";
+
+                // 4. Render Activity Chart (CSS-based)
+                const chart = document.getElementById('statsActivityChart');
+                chart.innerHTML = '';
+                const days = [];
+                for(let i=6; i>=0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    days.push(d.toISOString().split('T')[0]);
+                }
+
+                const maxActivity = Math.max(...Object.values(stats.dailyActivity), 5);
+                days.forEach(day => {
+                    const count = stats.dailyActivity[day] || 0;
+                    const height = (count / maxActivity) * 100;
+                    const dayName = new Date(day).toLocaleDateString('ar-EG', {weekday: 'short'});
+                    
+                    const bar = document.createElement('div');
+                    bar.className = "flex-grow flex flex-col items-center gap-2 group";
+                    bar.innerHTML = `
+                        <div class="relative w-full flex justify-center items-end h-full">
+                            <div class="absolute -top-8 bg-noser-neon text-noser-dark text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity transition-all">${count}</div>
+                            <div class="w-full max-w-[20px] noser-neon-bg rounded-t-lg transition-all duration-1000 shadow-[0_0_15px_rgba(0,210,255,0.3)]" style="height: ${height}%"></div>
+                        </div>
+                        <span class="text-[8px] font-bold opacity-40 uppercase">${dayName}</span>
+                    `;
+                    chart.appendChild(bar);
+                });
+
+                // 5. Render Key Distribution
+                const distEl = document.getElementById('statsKeyDistribution');
+                distEl.innerHTML = '';
+                const sortedVals = Object.keys(distribution).sort((a,b) => b-a);
+                const maxDist = Math.max(...Object.values(distribution), 1);
+
+                sortedVals.forEach(val => {
+                    const count = distribution[val];
+                    const percent = (count / maxDist) * 100;
+                    const row = document.createElement('div');
+                    row.className = "space-y-2";
+                    row.innerHTML = `
+                        <div class="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                            <span class="opacity-40">فئة ${val} PT</span>
+                            <span class="noser-neon">${count} مفتاح</span>
+                        </div>
+                        <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div class="h-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)] transition-all duration-1000" style="width: ${percent}%"></div>
+                        </div>
+                    `;
+                    distEl.appendChild(row);
+                });
+
+            } catch (err) { console.error(err); }
+        }
+
+        async function deleteKey(id) {
+            if (!confirm(`حذف المفتاح ${id}؟`)) return;
+            try {
+                await db.collection('keys').doc(id).delete();
+                refreshKeys(); refreshStats();
+            } catch (err) { alert("فشل الحذف"); }
+        }
+
+        async function downloadCategoryKeys(value) {
+            try {
+                // Fetch only active keys of this value for downloading
+                const snap = await db.collection('keys')
+                    .where('value', '==', parseInt(value))
+                    .where('status', '==', 'active')
+                    .get();
+                
+                if (snap.empty) return alert("لا توجد مفاتيح نشطة لهذه الفئة");
+
+                let content = "";
+                snap.forEach(doc => {
+                    content += doc.id + "\n";
+                });
+
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `NOSER-KEYS-PT${value}-${new Date().toLocaleDateString('en-CA')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (err) {
+                console.error(err);
+                alert("فشل تحميل الملف");
+            }
+        }
+
+        async function refreshUsers() {
+            const list = document.getElementById('usersList');
+            list.innerHTML = '<div class="text-center py-20 opacity-40">جاري التحميل...</div>';
+            try {
+                const snap = await db.collection('users').get();
+                list.innerHTML = '';
+                snap.forEach(doc => {
+                    const u = doc.data();
+                    const div = document.createElement('div');
+                    const isOnline = u.isOnline === true;
+                    div.className = "glass p-6 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-4 border border-white/5 relative overflow-hidden";
+                    div.innerHTML = `
+                        ${isOnline ? '<div class="absolute top-0 right-0 w-1 h-full bg-green-400"></div>' : ''}
+                        <div class="flex items-center gap-4">
+                            <div class="relative">
+                                <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-2xl">👤</div>
+                                ${isOnline ? '<div class="absolute -top-1 -right-1 w-4 h-4 bg-green-400 border-4 border-noser-dark rounded-full animate-pulse"></div>' : ''}
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-black text-lg">${u.username || 'مستخدم مجهول'}</span>
+                                    ${isOnline ? '<span class="text-[10px] bg-green-400/10 text-green-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">نشط الآن</span>' : ''}
+                                </div>
+                                <span class="text-xs opacity-40 font-mono">${doc.id}</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="text-center px-6 border-l border-white/10">
+                                <div class="text-xl font-black noser-neon">${u.balance}</div>
+                                <div class="text-[10px] opacity-40 uppercase font-bold">رصيد</div>
+                            </div>
+                            <div class="text-center px-6">
+                                <div class="text-xl font-black noser-neon">${u.emails?.length || 0}</div>
+                                <div class="text-[10px] opacity-40 uppercase font-bold">إيميلات</div>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            } catch (err) { list.innerHTML = "خطأ!"; }
+        }
+
+        async function refreshAPIKeys() {
+            const container = document.getElementById('apiCardContainer');
+            container.innerHTML = '<div class="text-center py-20 opacity-40">جاري التحميل...</div>';
+            
+            try {
+                const doc = await db.collection('settings').doc('api').get();
+                if (!doc.exists) return await getActiveApiKey();
+                
+                const data = doc.data();
+                const usagePercent = (data.usage / data.limit) * 100;
+                
+                container.innerHTML = `
+                    <div class="glass p-8 rounded-[2.5rem] flex flex-col gap-8 border border-white/5 relative overflow-hidden group hover:border-noser-neon transition-all">
+                        <div class="absolute top-0 right-0 px-4 py-1.5 bg-noser-neon text-noser-dark text-[10px] font-black uppercase tracking-widest rounded-bl-2xl shadow-lg">Active System API</div>
+                        
+                        <!-- API Key Section -->
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex-grow">
+                                <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-2">API KEY</div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-mono text-noser-neon font-black text-lg break-all">${data.key.substring(0, 20)}...${data.key.substring(data.key.length - 6)}</span>
+                                    <button onclick="editFullApiKey('${data.key}')" class="p-2 bg-white/5 hover:bg-noser-neon/20 hover:text-noser-neon rounded-xl transition-all">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-1 text-left">Status</div>
+                                <span class="px-4 py-1 rounded-full text-xs font-black uppercase ${usagePercent < 100 ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}">
+                                    ${usagePercent < 100 ? 'Connected' : 'Exhausted'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Usage Progress Section -->
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-end">
+                                <div class="flex flex-col">
+                                    <div class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-1">Monthly Usage</div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-2xl font-black text-white">${data.usage.toLocaleString()}</span>
+                                        <span class="opacity-30 font-bold">/ ${data.limit.toLocaleString()}</span>
+                                        <button onclick="editApiUsageManual(${data.usage})" class="p-1.5 hover:text-noser-neon transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-3xl font-black noser-neon">${usagePercent.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-white/5 h-3 rounded-full overflow-hidden p-0.5 border border-white/5">
+                                <div class="h-full ${usagePercent > 90 ? 'bg-red-500' : 'noser-neon-bg'} rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(0,210,255,0.3)]" style="width: ${usagePercent}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (err) { 
+                console.error(err); 
+                container.innerHTML = '<div class="text-center py-20 text-red-400">خطأ في جلب البيانات</div>';
+            }
+        }
+
+        async function editFullApiKey(current) {
+            const newKey = prompt("أدخل مفتاح الـ API الجديد (fce_...):", current);
+            if (!newKey || newKey === current) return;
+            if (!newKey.startsWith('fce_')) return alert("المفتاح غير صالح");
+
+            const resBox = document.getElementById('apiTestResult');
+            resBox.classList.remove('hidden', 'bg-red-500/20', 'text-red-400', 'bg-green-500/20', 'text-green-400');
+            resBox.classList.add('bg-white/5', 'text-white');
+            resBox.textContent = "جاري فحص المفتاح الجديد...";
+
+            try {
+                const testRes = await fetch('https://api2.freecustom.email/v1/domains', {
+                    headers: { 'Authorization': `Bearer ${newKey}` }
+                });
+                if (!testRes.ok) throw new Error("المفتاح غير صالح أو منتهي");
+
+                await db.collection('settings').doc('api').update({
+                    key: newKey,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                activeApiKey = newKey;
+                resBox.classList.replace('bg-white/5', 'bg-green-500/20');
+                resBox.classList.replace('text-white', 'text-green-400');
+                resBox.textContent = "✅ تم تحديث المفتاح بنجاح!";
+                refreshAPIKeys();
+            } catch (err) {
+                resBox.classList.replace('bg-white/5', 'bg-red-500/20');
+                resBox.classList.replace('text-white', 'text-red-400');
+                resBox.textContent = "❌ فشل: " + err.message;
+            }
+        }
+
+        async function editApiUsageManual(current) {
+            const newVal = prompt("أدخل قيمة الاستهلاك الحالية:", current);
+            if (newVal === null || isNaN(parseInt(newVal))) return;
+            
+            const usage = parseInt(newVal);
+            try {
+                await db.collection('settings').doc('api').update({
+                    usage: usage,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                refreshAPIKeys();
+            } catch (err) { alert("فشل التحديث"); }
+        }
+
+        // --- NUCLEAR RESET FUNCTIONS ---
+        function showNuclearModal() {
+            document.getElementById('nuclearModal').classList.remove('hidden');
+            document.getElementById('nuclearConfirmInput').value = '';
+        }
+
+        function closeNuclearModal() {
+            document.getElementById('nuclearModal').classList.add('hidden');
+        }
+
+        async function executeNuclearReset() {
+            const input = document.getElementById('nuclearConfirmInput').value.trim();
+            const btn = document.getElementById('nuclearBtn');
+            const spinner = document.getElementById('nuclearSpinner');
+            const btnText = document.getElementById('nuclearBtnText');
+
+            if (input !== 'NOSER') {
+                return alert("يرجى كتابة NOSER للتأكيد!");
+            }
+
+            if (!confirm("هل أنت متأكد بنسبة 100%؟ سيتم مسح كل شيء فوراً!")) return;
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            btnText.textContent = "جاري تدمير كافة السجلات...";
+
+            try {
+                // Delete collections
+                const collections = ['users', 'keys', 'taken_emails', 'api_keys'];
+                for (const coll of collections) {
+                    const snap = await db.collection(coll).get();
+                    const batch = db.batch();
+                    snap.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                }
+
+                // Reset API settings
+                await db.collection('settings').doc('api').set({
+                    key: "fce_3cef98aad3ab424a0aad1d1a13b4fb7681c9f00cc6141693b9364ee47e89ea84",
+                    usage: 0,
+                    limit: 5000,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                alert("🔥 تمت العملية بنجاح! تم تصفير الموقع بالكامل. سيتم تسجيل خروجك الآن.");
+                auth.signOut().then(() => {
+                    window.location.href = 'index.html';
+                });
+            } catch (err) {
+                console.error(err);
+                alert("فشل مسح بعض البيانات: " + err.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                btnText.textContent = "تأكيد المسح الشامل والنهائي";
+            }
+        }
+    </script>
+</body>
+</html>
