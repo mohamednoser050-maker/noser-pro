@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noser X Mail</title>
+    <link rel="icon" href="https://i.postimg.cc/DfCpvrbn/79e5449c-178e-4f1c-a2fa-59f471b00ddf-1-removebg-preview.png" type="image/png">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Cairo Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK (v9 Compatibility Mode) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; transition: background-color 0.3s, color 0.3s; -webkit-tap-highlight-color: transparent; }
+        .noser-bg { background-color: #050A18; }
+        .noser-neon { color: #00D2FF; }
+        .noser-neon-bg { background: #00D2FF; } /* Solid color for a lighter feel */
+        .noser-glow { text-shadow: none; } /* Removed glow for a cleaner look */
+        .glass { background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .dark .glass { background: rgba(13, 20, 37, 0.5); border: 1px solid rgba(255, 255, 255, 0.03); }
+        .card-shadow { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); }
+        .toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 400px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #050A18; }
+        ::-webkit-scrollbar-thumb { background: #00D2FF; border-radius: 10px; }
+        .active-tab { border-bottom: 2px solid #00D2FF; color: #00D2FF; }
+        
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            .glass { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(255, 255, 255, 0.01); border: none; }
+            .dark .glass { background: rgba(13, 20, 37, 0.3); border: none; }
+            .container { padding-left: 0.75rem; padding-right: 0.75rem; }
+            input, button { font-size: 15px !important; min-height: 48px; border-radius: 1rem !important; }
+            .mobile-hide { display: none !important; }
+            .mobile-full { width: 100% !important; }
+            .card-shadow { box-shadow: none; }
+            .rounded-\[2\.5rem\] { border-radius: 1.5rem !important; }
+            .rounded-\[3rem\] { border-radius: 1.5rem !important; }
+            .p-6 { padding: 1rem !important; }
+            .p-8 { padding: 1.25rem !important; }
+        }
+
+        /* Improved Bottom Nav - REMOVED AS PER USER REQUEST */
+        .mobile-bottom-nav { display: none !important; }
+        
+        @media (max-width: 1024px) {
+            body { padding-bottom: 20px; }
+        }
+
+        /* Custom Touch Feedback */
+        .touch-active:active { transform: scale(0.96); opacity: 0.8; transition: all 0.1s ease; }
+        .noser-btn { position: relative; overflow: hidden; }
+        .noser-btn::after { content: ''; position: absolute; inset: 0; background: white; opacity: 0; transition: opacity 0.2s; }
+        .noser-btn:active::after { opacity: 0.1; }
+
+        /* Smooth Transition for Main Content */
+        #dashView main, #dashView aside { transition: all 0.3s ease-in-out; }
+
+        /* Loading Overlay */
+        #globalLoader {
+            position: fixed; inset: 0; background: #050A18; z-index: 10000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: { 
+                    colors: { 
+                        noser: { 
+                            dark: '#050A18', 
+                            neon: '#00D2FF', 
+                            accent: '#9D50BB',
+                            surface: '#0D1425' 
+                        } 
+                    } 
+                } 
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-noser-dark text-slate-800 dark:text-gray-100 min-h-screen">
+
+    <!-- Global Loader -->
+    <div id="globalLoader">
+        <div class="w-24 h-24 noser-neon-bg rounded-[2rem] flex items-center justify-center text-noser-dark mb-8 animate-pulse p-1">
+            <img src="https://i.postimg.cc/yxtQ6j5y/79e5449c-178e-4f1c-a2fa-59f471b00ddf-(1).jpg" class="w-full h-full object-cover rounded-[1.8rem]">
+        </div>
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/10 border-t-noser-neon"></div>
+        <p class="mt-6 noser-neon font-bold noser-glow tracking-widest uppercase text-xs">Initializing Noser X Mail...</p>
+    </div>
+
+    <!-- Auth View -->
+    <div id="authView" class="hidden min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md glass p-6 md:p-10 rounded-[2.5rem] shadow-2xl animate-fadeIn text-center">
+            <div class="mb-6">
+                <div class="w-20 h-20 mx-auto mb-4 shadow-2xl shadow-noser-neon/20 p-1 bg-noser-neon rounded-[2rem]">
+                    <img src="https://i.postimg.cc/yxtQ6j5y/79e5449c-178e-4f1c-a2fa-59f471b00ddf-(1).jpg" class="w-full h-full object-cover rounded-[1.8rem]">
+                </div>
+                <h1 class="text-3xl font-extrabold noser-neon uppercase tracking-tighter mb-1">
+                    Noser <span class="text-white opacity-20 font-light mx-1">X</span> Mail
+                </h1>
+                <p class="text-xs opacity-60">بريدك السحابي بضغطة زر واحدة</p>
+            </div>
+
+            <!-- Google Login Button (Primary & Only Method) -->
+            <button onclick="loginWithGoogle()" class="w-full bg-white text-noser-dark font-black py-4 rounded-2xl hover:bg-gray-100 active:scale-95 touch-active transition-all shadow-xl flex items-center justify-center gap-4 text-lg">
+                <svg class="w-6 h-6" viewBox="0 0 48 48">
+                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
+                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
+                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.83-5.195l-6.351-5.231C29.14,35.143,26.67,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
+                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
+                </svg>
+                <span>الدخول بواسطة Google</span>
+            </button>
+
+            <div class="text-center mt-6 pt-6 border-t border-white/5">
+                <a href="https://wa.me/201220671052" target="_blank" class="w-full bg-noser-neon/10 text-noser-neon border border-noser-neon/20 py-4 rounded-2xl font-black hover:bg-noser-neon/20 transition-all flex items-center justify-center gap-3 group touch-active">
+                    <div class="w-8 h-8 bg-noser-neon/20 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.353-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.216 1.36.186 1.872.11.57-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.87 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    </div>
+                    <span class="text-sm">تواصل مع المطور</span>
+                </a>
+            </div>
+
+            <!-- Global Footer for Auth -->
+            <footer class="mt-10 pt-8 border-t border-white/10 text-center opacity-30 text-[10px] font-bold tracking-widest uppercase">
+                &copy; 2026 Noser X Mail. All Rights Reserved. <br> 
+                <span class="noser-neon">Mohamed Noser</span>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashView" class="hidden min-h-screen flex flex-col">
+        <nav class="glass border-b border-white/10 sticky top-0 z-50">
+            <div class="container mx-auto px-4 py-3 md:py-4 flex justify-between items-center">
+                <div class="flex items-center gap-2 md:gap-3">
+                    <div class="w-8 h-8 md:w-10 md:h-10 p-0.5 bg-noser-neon rounded-lg md:rounded-xl shadow-lg shadow-noser-neon/20 shrink-0">
+                        <img src="https://i.postimg.cc/yxtQ6j5y/79e5449c-178e-4f1c-a2fa-59f471b00ddf-(1).jpg" class="w-full h-full object-cover rounded-md md:rounded-lg">
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="font-black text-lg md:text-xl noser-neon leading-none">Noser <span class="text-white opacity-20 font-light mx-0.5 md:mx-1 text-sm md:text-xl">X</span> Mail</span>
+                        <span id="headerBalance" class="text-[10px] font-black noser-neon/80 mt-1 uppercase tracking-wider">رصيدك: 0 إيميل</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 md:gap-4">
+                    <!-- Admin Button -->
+                    <a id="adminBtn" href="admin.html" class="hidden bg-noser-accent/10 text-noser-accent border border-noser-accent/20 px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-sm font-black hover:bg-noser-accent/20 transition-all shrink-0">🛠 الإدارة</a>
+                    
+                    <div class="hidden sm:flex flex-col text-left items-end">
+                        <div class="flex items-center gap-2">
+                            <span id="navUsername" class="font-bold text-[10px] md:text-sm truncate max-w-[100px] md:max-w-[150px]">...</span>
+                            <img id="navProfilePic" src="" class="w-6 h-6 md:w-8 md:h-8 rounded-full border border-white/10 hidden">
+                        </div>
+                        <span id="navBalance" class="text-[8px] md:text-xs noser-neon font-bold">رصيدك: 0 إيميل</span>
+                    </div>
+                    <button onclick="logout()" class="bg-red-500/10 text-red-400 px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-sm font-bold hover:bg-red-500/20 transition-all shrink-0">خروج</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Mobile Bottom Nav -->
+        <div class="mobile-bottom-nav flex justify-around items-center">
+            <button onclick="scrollToTop()" class="flex flex-col items-center gap-1 opacity-60 hover:opacity-100 touch-active transition-all flex-1">
+                <span class="text-2xl">🏠</span>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest noser-neon">الرئيسية</span>
+            </button>
+            <button onclick="showActivationModal()" class="flex flex-col items-center gap-1 opacity-60 hover:opacity-100 touch-active transition-all flex-1">
+                <span class="text-2xl">🔑</span>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest">شحن</span>
+            </button>
+            <button onclick="refreshDashInbox()" class="flex flex-col items-center gap-1 relative flex-1">
+                <div class="w-14 h-14 noser-neon-bg rounded-full flex items-center justify-center -mt-12 shadow-2xl shadow-noser-neon/40 border-[6px] border-noser-dark touch-active">
+                    <span class="text-noser-dark text-2xl">🔄</span>
+                </div>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest noser-neon mt-1">تحديث</span>
+            </button>
+            <button onclick="showSupportModal()" class="flex flex-col items-center gap-1 opacity-60 hover:opacity-100 touch-active transition-all flex-1">
+                <span class="text-2xl">💬</span>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest">الدعم</span>
+            </button>
+            <button onclick="logout()" class="flex flex-col items-center gap-1 opacity-60 hover:opacity-100 touch-active transition-all text-red-400 flex-1">
+                <span class="text-2xl">🚪</span>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest">خروج</span>
+            </button>
+        </div>
+
+        <div class="container mx-auto px-4 py-6 md:py-8 flex flex-col lg:flex-row gap-6 md:gap-8 flex-grow">
+            <!-- Sidebar (Aside) -->
+            <aside class="w-full lg:w-80 space-y-6 order-2 lg:order-1">
+                <!-- Balance Card -->
+                <div class="glass p-6 rounded-[2rem] card-shadow">
+                    <h3 class="text-[10px] font-black opacity-40 mb-4 uppercase tracking-[0.2em]">إدارة رصيد الحساب</h3>
+                    <div class="flex items-center justify-between mb-6 bg-white/5 p-4 rounded-2xl">
+                        <div>
+                            <div class="text-4xl font-black noser-neon leading-none" id="dashBalance">0</div>
+                            <div class="text-[10px] font-bold opacity-40 uppercase mt-1">إيميل متبقي</div>
+                        </div>
+                        <div class="w-12 h-12 bg-noser-neon/10 rounded-xl flex items-center justify-center text-2xl">💰</div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2">
+                        <button onclick="showActivationModal()" class="w-full bg-white/5 border border-white/10 py-4 rounded-2xl text-xs font-black hover:bg-white/10 transition-all flex items-center justify-center gap-2 touch-active">
+                            <span>🔑</span> إضافة كود الرصيد
+                        </button>
+                        <button onclick="showSupportModal()" class="w-full bg-green-500/10 text-green-400 border border-green-500/20 py-4 rounded-2xl text-xs font-black hover:bg-green-500/20 transition-all flex items-center justify-center gap-2 touch-active">
+                            <span>💬</span> اطلب رصيد الآن
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Emails -->
+                <div class="glass p-6 rounded-[2rem] flex flex-col max-h-[400px] md:max-h-[500px]">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-[10px] font-black opacity-40 uppercase tracking-[0.2em]">آخر الإيميلات</h3>
+                        <span class="text-[8px] bg-noser-neon/10 text-noser-neon px-2 py-0.5 rounded-full font-bold">أحدث 3</span>
+                    </div>
+                    <div id="userEmailList" class="space-y-2 overflow-y-auto flex-grow pr-1"></div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="flex-grow flex flex-col gap-6 order-1 lg:order-2">
+                <!-- Generation Area -->
+                <div class="glass p-6 md:p-8 rounded-[2.5rem] border-noser-neon/5 border">
+                    <div class="flex flex-col gap-4">
+                        <div class="flex flex-col md:flex-row gap-3 items-stretch">
+                            <div class="flex-grow relative group">
+                                <input type="text" id="dashCustomName" placeholder="اسم مخصص (اختياري)" class="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-noser-neon/30 transition-all text-center md:text-right font-bold text-lg">
+                                <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none opacity-20 group-focus-within:opacity-100 transition-opacity">✏️</div>
+                            </div>
+                            <button onclick="generateNewEmail()" id="dashGenBtn" class="bg-white/5 text-noser-neon border border-noser-neon/20 font-black px-10 py-4 rounded-2xl hover:bg-noser-neon hover:text-noser-dark active:scale-95 touch-active transition-all flex items-center justify-center gap-3 shrink-0 text-lg">
+                                <span>⚡ توليد بريد</span>
+                                <div id="dashGenSpinner" class="hidden animate-spin rounded-full h-5 w-5 border-2 border-noser-neon border-t-transparent"></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Mail Area -->
+                <div id="activeEmailHeader" class="hidden glass p-6 md:p-8 rounded-[2.5rem] flex flex-col gap-4 animate-fadeIn border-noser-neon/10 border">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-2">
+                        <div class="text-center md:text-right w-full">
+                            <span class="text-[10px] font-black opacity-40 uppercase tracking-widest mb-1 block">البريد النشط حالياً</span>
+                            <div id="dashActiveEmail" class="text-xl md:text-2xl font-black noser-neon tracking-tighter break-all bg-white/5 p-3 rounded-xl border border-white/5 select-all">...</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 w-full">
+                        <button onclick="copyDashEmail()" class="flex-1 bg-white/5 border border-white/5 py-4 rounded-xl text-xs font-black hover:bg-white/10 touch-active transition-all flex items-center justify-center gap-2">
+                            <span>📋</span> نسخ
+                        </button>
+                        <button onclick="refreshDashInbox()" id="dashRefreshBtn" class="flex-[1.5] bg-noser-neon text-noser-dark py-4 rounded-xl text-xs font-black hover:opacity-90 active:scale-95 touch-active transition-all flex items-center justify-center gap-2 group">
+                            <span class="group-hover:rotate-180 transition-transform duration-700">🔄</span>
+                            <span>تحديث</span>
+                            <div id="dashRefreshSpinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-noser-dark border-t-transparent"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="dashInboxArea" class="hidden flex-grow flex flex-col gap-4">
+                    <div id="dashMailList" class="grid grid-cols-1 gap-3"></div>
+                    <div id="dashEmptyInbox" class="glass rounded-[3rem] p-12 md:p-20 text-center flex-grow flex flex-col items-center justify-center border-dashed border-white/10 border-2">
+                        <div class="text-6xl mb-6 grayscale opacity-20">📭</div>
+                        <h4 class="text-xl font-black mb-2 opacity-40">لا توجد رسائل حالياً</h4>
+                        <p class="text-xs opacity-30 max-w-xs leading-relaxed">بمجرد وصول أي رسالة لهذا البريد ستظهر هنا تلقائياً بعد الضغط على تحديث.</p>
+                    </div>
+                </div>
+
+                <div id="noEmailSelected" class="flex-grow glass rounded-[3rem] p-12 md:p-20 text-center flex flex-col items-center justify-center animate-fadeIn border-white/5 border">
+                    <div class="w-24 h-24 bg-noser-neon/10 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-2xl shadow-noser-neon/5">📧</div>
+                    <h4 class="text-2xl font-black mb-3">جاهز للبدء؟</h4>
+                    <p class="opacity-40 max-w-xs leading-relaxed text-sm font-bold">قم بتوليد إيميل جديد بالأعلى أو اختر واحداً من قائمة الإيميلات السابقة في الجانب.</p>
+                </div>
+            </main>
+        </div>
+
+        <!-- Global Footer for Dashboard -->
+        <footer class="py-8 text-center opacity-30 text-[10px] font-bold tracking-widest uppercase mt-auto">
+            &copy; 2026 Noser X Mail. All Rights Reserved. <br> 
+            <span class="noser-neon">Mohamed Noser</span>
+        </footer>
+    </div>
+
+    <!-- Activation Modal -->
+    <div id="activateModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeActivationModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="glass w-full max-w-md p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl animate-fadeIn relative">
+                <button onclick="closeActivationModal()" class="absolute top-6 left-6 w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-all opacity-50 hover:opacity-100">✕</button>
+                <h3 class="text-xl md:text-3xl font-black mb-4 text-center">شحن الرصيد</h3>
+                <p class="text-xs md:text-sm opacity-60 mb-8 text-center px-4">أدخل الكود الذي استلمته من فريق الدعم لزيادة رصيد حسابك فوراً.</p>
+                <input type="text" id="dashKeyInput" placeholder="NOSER-XXXX-XX" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 md:py-6 outline-none focus:border-noser-neon transition-all text-center font-mono uppercase tracking-[0.2em] mb-8 text-lg md:text-xl">
+                <button onclick="submitKey()" class="w-full noser-neon-bg text-noser-dark font-black py-5 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all text-lg shadow-lg shadow-noser-neon/20">تأكيد التفعيل ✨</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Support Modal (New) -->
+    <div id="supportModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeSupportModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="glass w-full max-w-md p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl animate-fadeIn relative text-center">
+                <button onclick="closeSupportModal()" class="absolute top-6 left-6 w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-all opacity-50 hover:opacity-100">✕</button>
+                
+                <div class="mb-8">
+                    <h3 class="text-2xl md:text-4xl font-black noser-neon mb-2">تواصل معنا</h3>
+                    <p class="text-xs md:text-sm opacity-60">لشراء رصيد أو طلب مساعدة تقنية</p>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Mohamed Support -->
+                    <a href="https://wa.me/201220671052" target="_blank" class="flex items-center gap-4 bg-white/5 border border-white/10 p-4 md:p-5 rounded-[2rem] hover:bg-white/10 transition-all group relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-1 h-full bg-noser-neon opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="w-14 h-14 md:w-16 md:h-16 bg-noser-neon/20 rounded-full flex-shrink-0 overflow-hidden border-2 border-noser-neon/30 flex items-center justify-center">
+                            <img src="https://i.postimg.cc/PqhNCjnj/Screenshot-16.png" class="w-full h-full object-cover">
+                        </div>
+                        <div class="text-right flex-grow overflow-hidden">
+                            <div class="font-black text-lg md:text-xl group-hover:noser-neon transition-colors whitespace-nowrap">Mohamed Noser</div>
+                            <div class="text-[10px] opacity-50 font-bold">المطور</div>
+                        </div>
+                        <div class="bg-green-500/20 text-green-400 p-2.5 rounded-xl group-hover:scale-110 transition-transform shrink-0">
+                            <svg class="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.353-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.216 1.36.186 1.872.11.57-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.87 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        </div>
+                    </a>
+
+                    <!-- Loai Support -->
+                    <a href="https://wa.me/201212125714" target="_blank" class="flex items-center gap-4 bg-white/5 border border-white/10 p-4 md:p-5 rounded-[2rem] hover:bg-white/10 transition-all group relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-1 h-full bg-noser-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="w-14 h-14 md:w-16 md:h-16 bg-noser-accent/20 rounded-full flex-shrink-0 overflow-hidden border-2 border-noser-accent/30 flex items-center justify-center">
+                            <img src="https://i.postimg.cc/cCTSHpW7/bd3a3415-c4bc-4e08-ae91-e4c078fa8e7e.jpg" class="w-full h-full object-cover">
+                        </div>
+                        <div class="text-right flex-grow">
+                            <div class="font-black text-lg md:text-xl group-hover:noser-accent transition-colors">Loai AbdElhay</div>
+                            <div class="text-[10px] opacity-50 font-bold">وكيل دعم</div>
+                        </div>
+                        <div class="bg-green-500/20 text-green-400 p-2.5 rounded-xl group-hover:scale-110 transition-transform shrink-0">
+                            <svg class="w-5 h-5 md:w-6 md:h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.353-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.216 1.36.186 1.872.11.57-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.87 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Viewer Modal -->
+    <div id="msgViewModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/95 backdrop-blur-xl" onclick="closeMsgModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-0 md:p-4">
+            <div class="glass w-full md:max-w-4xl h-full md:max-h-[90vh] md:rounded-[3rem] overflow-hidden flex flex-col animate-fadeIn border-none md:border md:border-white/10">
+                <div class="p-6 md:p-8 border-b border-white/10 flex justify-between items-start bg-noser-dark/50">
+                    <div class="flex-grow">
+                        <h4 id="msgSubject" class="text-xl md:text-2xl font-black mb-2 noser-neon leading-tight break-words">...</h4>
+                        <div class="text-xs md:text-sm opacity-60">من: <span id="msgFrom" class="font-bold text-gray-200">...</span></div>
+                    </div>
+                    <button onclick="closeMsgModal()" class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-xl md:text-2xl transition-all shrink-0 mr-4 touch-active">✕</button>
+                </div>
+                <div id="msgContent" class="flex-grow p-4 md:p-8 overflow-y-auto bg-white text-slate-900 md:rounded-b-[3rem]"></div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        /**
+         * ==========================================
+         *  NOSER PRO - CLOUD CONFIGURATION (FIREBASE)
+         * ==========================================
+         */
+        
+        // 1. ضع إعدادات Firebase الخاصة بك هنا (من Firebase Console)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDTIwozz505qKTXKVpM8uedM1GcQ4Yec1w",
+            authDomain: "noser-pro.firebaseapp.com",
+            projectId: "noser-pro",
+            storageBucket: "noser-pro.firebasestorage.app",
+            messagingSenderId: "66738183490",
+            appId: "1:66738183490:web:bdb5bc71400367a1a5bcdb",
+            measurementId: "G-3DVKKDXFM9"
+        };
+
+        /** ========================================== **/
+
+        // Initialize Firebase (Check if config is valid)
+        let db, auth;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch(e) {
+            console.warn("Firebase not initialized. Please add your config.");
+        }
+
+        const API_BASE = "https://api2.freecustom.email/v1";
+        let domains = [];
+        let pollingInterval = null;
+        let lastMsgCount = 0;
+        let activeEmailObj = null;
+        let currentUserData = null;
+        let lastRequestTime = 0;
+        let activeApiKey = null;
+
+        // Fetch the active API Key from Firestore
+        async function getActiveApiKey() {
+            try {
+                const doc = await db.collection('settings').doc('api').get();
+                if (doc.exists) {
+                    activeApiKey = doc.data().key;
+                    return activeApiKey;
+                }
+                // Fallback to the hardcoded key if not found in Firestore
+                return "fce_3cef98aad3ab424a0aad1d1a13b4fb7681c9f00cc6141693b9364ee47e89ea84";
+            } catch (err) {
+                console.error("Error fetching API key:", err);
+                return "fce_3cef98aad3ab424a0aad1d1a13b4fb7681c9f00cc6141693b9364ee47e89ea84";
+            }
+        }
+
+        // Helper to handle 1 request per second limit
+        async function fceFetch(url, options = {}, retryCount = 0) {
+            if (!activeApiKey) activeApiKey = await getActiveApiKey();
+            
+            const now = Date.now();
+            const timeSinceLast = now - lastRequestTime;
+            if (timeSinceLast < 1100) {
+                await new Promise(r => setTimeout(r, 1100 - timeSinceLast));
+            }
+            
+            const res = await fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${activeApiKey}`
+                }
+            });
+            
+            lastRequestTime = Date.now();
+
+            if (res.ok) {
+                // Increment usage counter in Firestore (Background)
+                db.collection('settings').doc('api').update({
+                    usage: firebase.firestore.FieldValue.increment(1),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(() => {});
+            }
+            
+            return res;
+        }
+
+        // Start
+        window.onload = () => {
+            // Fail-safe: Hide loader after 5 seconds if Firebase hangs
+            const loaderTimeout = setTimeout(() => {
+                const loader = document.getElementById('globalLoader');
+                if (loader && loader.style.display !== 'none') {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.style.display = 'none', 500);
+                    if (!currentUserData) document.getElementById('authView').classList.remove('hidden');
+                }
+            }, 5000);
+
+            try {
+                auth.onAuthStateChanged(async (user) => {
+                    clearTimeout(loaderTimeout); // Cancel fail-safe if auth responds
+                    if (user) {
+                        try {
+                            await syncUserData(user.uid);
+                            showDashboard();
+                        } catch (err) {
+                            console.error("Sync Error:", err);
+                            document.getElementById('authView').classList.remove('hidden');
+                        }
+                    } else {
+                        document.getElementById('authView').classList.remove('hidden');
+                    }
+                    document.getElementById('globalLoader').style.opacity = '0';
+                    setTimeout(() => document.getElementById('globalLoader').style.display = 'none', 500);
+                });
+            } catch (e) {
+                console.error("Firebase Auth Error:", e);
+                document.getElementById('globalLoader').style.display = 'none';
+                document.getElementById('authView').classList.remove('hidden');
+            }
+        };
+
+        // --- CLOUD SYNC LOGIC ---
+        async function syncUserData(uid) {
+            const doc = await db.collection('users').doc(uid).get();
+            if (doc.exists) {
+                currentUserData = doc.data();
+                // Compatibility check: ensure emails have a messages array
+                if (!currentUserData.emails) currentUserData.emails = [];
+                if (!currentUserData.balance) currentUserData.balance = 0;
+                if (!currentUserData.username) currentUserData.username = auth.currentUser.email || auth.currentUser.uid;
+                
+                let changed = false;
+                currentUserData.emails.forEach(e => {
+                    if (!e.messages) { e.messages = []; changed = true; }
+                });
+                if (changed) await saveCloudData();
+            } else {
+                currentUserData = { 
+                    username: auth.currentUser.email || auth.currentUser.uid, 
+                    balance: 0, 
+                    emails: [] 
+                };
+                await db.collection('users').doc(uid).set(currentUserData);
+            }
+
+            // --- ONLINE STATUS TRACKING ---
+            db.collection('users').doc(uid).set({
+                lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+                isOnline: true
+            }, { merge: true });
+
+            // Handle disconnection
+            window.addEventListener('beforeunload', () => {
+                db.collection('users').doc(uid).set({ isOnline: false }, { merge: true });
+            });
+        }
+
+        async function saveCloudData() {
+            if (!auth.currentUser || !currentUserData) return;
+            
+            // Clean undefined values before saving to Firestore
+            const cleanData = JSON.parse(JSON.stringify(currentUserData, (key, value) => {
+                return value === undefined ? null : value;
+            }));
+            
+            try {
+                await db.collection('users').doc(auth.currentUser.uid).set(cleanData, { merge: true });
+                updateDashUI();
+            } catch (err) {
+                console.error("Firestore Save Error:", err);
+                showToast("خطأ في حفظ البيانات سحابياً", "error");
+            }
+        }
+
+        async function loginWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                const result = await auth.signInWithPopup(provider);
+                showToast("تم تسجيل الدخول بواسطة Google", "success");
+            } catch (e) {
+                console.error(e);
+                showToast("فشل تسجيل الدخول بواسطة جوجل", "error");
+            }
+        }
+
+        function logout() {
+            auth.signOut();
+            location.reload();
+        }
+
+        // --- DASHBOARD UI ---
+        function showDashboard() {
+            document.getElementById('authView').classList.add('hidden');
+            document.getElementById('dashView').classList.remove('hidden');
+            updateDashUI();
+            renderEmailList();
+        }
+
+        function updateDashUI() {
+            const balanceText = `رصيدك: ${currentUserData.balance} إيميل`;
+            document.getElementById('navUsername').textContent = currentUserData.username;
+            document.getElementById('navBalance').textContent = balanceText;
+            document.getElementById('headerBalance').textContent = balanceText;
+            document.getElementById('dashBalance').textContent = currentUserData.balance;
+            
+            // Profile Picture with Fallback
+            const picEl = document.getElementById('navProfilePic');
+            const defaultAvatar = "https://cdn-icons-png.flaticon.com/512/147/147144.png";
+            
+            if (auth.currentUser && auth.currentUser.photoURL) {
+                picEl.src = auth.currentUser.photoURL;
+                picEl.onerror = () => { picEl.src = defaultAvatar; };
+                picEl.classList.remove('hidden');
+            } else {
+                picEl.src = defaultAvatar;
+                picEl.classList.remove('hidden');
+            }
+
+            // ADMIN ACCESS CHECK
+            const ownerEmails = ['mohamednoser050@gmail.com']; // Updated email
+            if (auth.currentUser && ownerEmails.includes(auth.currentUser.email)) {
+                document.getElementById('adminBtn').classList.remove('hidden');
+            } else {
+                document.getElementById('adminBtn').classList.add('hidden');
+            }
+        }
+
+        async function generateNewEmail() {
+            if (currentUserData.balance <= 0) return showToast("رصيدك منتهي، يرجى الشحن", "error");
+            
+            const btn = document.getElementById('dashGenBtn');
+            const spinner = document.getElementById('dashGenSpinner');
+            btn.disabled = true; spinner.classList.remove('hidden');
+
+            try {
+                // 1. Fetch domains if empty
+                if (domains.length === 0) {
+                    try {
+                        const domainRes = await fceFetch(`${API_BASE}/domains`);
+                        if (domainRes.ok) {
+                            const domainData = await domainRes.json();
+                            domains = domainData.domains || [];
+                            if (domains.length > 0) {
+                                document.getElementById('dashDomainDisplay').textContent = `@${domains[0]}`;
+                            }
+                        }
+                    } catch (e) { console.error("Domain fetch failed", e); }
+                }
+
+                const domain = domains.length > 0 ? domains[0] : "ditube.info";
+                let login = document.getElementById('dashCustomName').value.trim();
+                
+                // Use a longer random suffix and NO underscore for better API compatibility
+                const randomSuffix = Math.random().toString(36).substring(2, 10); // 8 characters
+                if (login) {
+                    // Remove any non-alphanumeric chars to ensure API accepts it
+                    login = login.toLowerCase().replace(/[^a-z0-9]/g, '') + randomSuffix;
+                } else {
+                    login = "noser" + randomSuffix;
+                }
+                
+                const address = `${login}@${domain}`;
+
+                // 2. Prevent Duplicate Emails (Global Check)
+                const takenDoc = await db.collection('taken_emails').doc(address).get();
+                if (takenDoc.exists) {
+                    throw new Error("هذا البريد مستخدم بالفعل من قبل شخص آخر، يرجى اختيار اسم آخر");
+                }
+
+                // 3. Attempt to create inbox
+                const createRes = await fceFetch(`${API_BASE}/inboxes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inbox: address })
+                });
+                
+                const accData = await createRes.json().catch(() => ({}));
+
+                if (!createRes.ok) {
+                    throw new Error(accData.message || `فشل التوليد (كود ${createRes.status})`);
+                }
+
+                // 4. Mark email as taken globally
+                await db.collection('taken_emails').doc(address).set({
+                    owner: auth.currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // 5. Robust data extraction from new API structure
+                const inboxData = accData.data || {};
+                const finalId = inboxData.id || accData.id || inboxData.inbox_id || Math.random().toString(36).substring(2, 15);
+                const finalAddress = inboxData.inbox || accData.address || accData.inbox || address;
+
+                // 6. Update balance and data
+                currentUserData.balance--;
+                const newEmail = { 
+                    address: finalAddress, 
+                    id: finalId, 
+                    createdAt: new Date().toISOString(),
+                    messages: []
+                };
+                
+                currentUserData.emails.push(newEmail);
+                await saveCloudData();
+                setActiveEmail(newEmail, true); // true to skip automatic fetch
+                showToast("تم توليد بريد جديد بنجاح", "success");
+            } catch(e) { 
+                showToast(e.message || "حدث خطأ غير متوقع أثناء توليد الإيميل", "error"); 
+            }
+            btn.disabled = false; spinner.classList.add('hidden');
+        }
+
+        function renderEmailList() {
+            const container = document.getElementById('userEmailList');
+            container.innerHTML = '';
+            if (currentUserData.emails.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 opacity-40 text-xs font-bold">لم يتم إنشاء أي ايميلات</div>';
+                return;
+            }
+            
+            // Show only the last 3 emails
+            const recentEmails = currentUserData.emails.slice(-3).reverse();
+            
+            recentEmails.forEach(email => {
+                const item = document.createElement('div');
+                const isActive = activeEmailObj && activeEmailObj.address === email.address;
+                item.className = `p-3 rounded-xl cursor-pointer transition-all border ${isActive ? 'noser-neon-bg text-noser-dark font-bold' : 'bg-white/5 border-white/10 hover:bg-white/10'}`;
+                item.innerHTML = `<div class="text-xs break-all leading-tight">${email.address}</div><div class="text-[10px] opacity-60 mt-1">${new Date(email.createdAt).toLocaleDateString('ar-EG')}</div>`;
+                item.onclick = () => setActiveEmail(email);
+                container.appendChild(item);
+            });
+        }
+
+        function setActiveEmail(email, skipFetch = true) {
+            activeEmailObj = email;
+            lastMsgCount = email.messages ? email.messages.length : 0;
+            document.getElementById('noEmailSelected').classList.add('hidden');
+            document.getElementById('activeEmailHeader').classList.remove('hidden');
+            document.getElementById('dashInboxArea').classList.remove('hidden');
+            document.getElementById('dashActiveEmail').textContent = email.address;
+            
+            // Initial render of saved messages
+            const list = document.getElementById('dashMailList');
+            list.innerHTML = '';
+            if (email.messages && email.messages.length > 0) {
+                document.getElementById('dashEmptyInbox').classList.add('hidden');
+                email.messages.forEach(msg => renderMessageItem(msg));
+            } else {
+                document.getElementById('dashEmptyInbox').classList.remove('hidden');
+            }
+            
+            renderEmailList();
+            if (!skipFetch) refreshDashInbox();
+        }
+
+        function renderMessageItem(msg) {
+            const list = document.getElementById('dashMailList');
+            const existingIds = Array.from(list.querySelectorAll('.msg-item')).map(el => el.dataset.id);
+            if (!existingIds.includes(msg.id)) {
+                const div = document.createElement('div');
+                div.className = "msg-item glass p-4 rounded-2xl border-transparent hover:border-noser-neon/20 transition-all cursor-pointer flex justify-between items-center group animate-fadeIn mb-2";
+                div.dataset.id = msg.id;
+                div.onclick = () => viewMessage(msg.id);
+                div.innerHTML = `<div class="flex-grow"><h5 class="font-bold text-base group-hover:noser-neon">${msg.subject || '(بدون عنوان)'}</h5><div class="text-xs opacity-40">${msg.from}</div></div><div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div>`;
+                list.prepend(div);
+            }
+        }
+
+        async function refreshDashInbox() {
+            if (!activeEmailObj) return;
+            
+            const btn = document.getElementById('dashRefreshBtn');
+            const spinner = document.getElementById('dashRefreshSpinner');
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+
+            try {
+                // Official Path from الطرق.txt: GET /v1/inboxes/{inbox}/messages
+                const encodedInbox = encodeURIComponent(activeEmailObj.address);
+                const url = `${API_BASE}/inboxes/${encodedInbox}/messages`;
+                
+                console.log("Fetching messages from official path:", url);
+                const res = await fceFetch(url);
+                const data = await res.json().catch(() => ({}));
+                console.log("--- DEBUG: Inbox API Response ---", data);
+
+                if (!res.ok) {
+                    throw new Error(data.message || `فشل التحديث (كود ${res.status})`);
+                }
+                
+                let apiMessages = [];
+                if (Array.isArray(data.data)) {
+                    apiMessages = data.data; 
+                } else if (data.data && Array.isArray(data.data.messages)) {
+                    apiMessages = data.data.messages; 
+                } else if (Array.isArray(data.messages)) {
+                    apiMessages = data.messages; 
+                } else if (Array.isArray(data)) {
+                    apiMessages = data; 
+                }
+                
+                console.log(`--- DEBUG: Found ${apiMessages.length} messages in API response ---`);
+
+                const list = document.getElementById('dashMailList');
+                const empty = document.getElementById('dashEmptyInbox');
+
+                let hasNew = false;
+                for (const msgSummary of apiMessages) {
+                    const msgId = msgSummary.id || msgSummary.message_id || msgSummary.uid || msgSummary.id_message;
+                    
+                    if (!msgId) {
+                        console.warn("--- DEBUG: Skipping message with no ID ---", msgSummary);
+                        continue;
+                    }
+
+                    const exists = activeEmailObj.messages.some(m => {
+                        const existingId = m.id || m.message_id || m.uid || m.id_message;
+                        return String(existingId) === String(msgId);
+                    });
+                    
+                    if (!exists) {
+                        console.log(`--- DEBUG: New message found! ID: ${msgId} ---`);
+                        try {
+                            const fullMsgRes = await fceFetch(`${API_BASE}/inboxes/${encodedInbox}/messages/${msgId}`);
+                            if (fullMsgRes.ok) {
+                                const fullMsgData = await fullMsgRes.json();
+                                const fullMsg = fullMsgData.data || fullMsgData;
+                                if (!fullMsg.id) fullMsg.id = msgId;
+                                activeEmailObj.messages.push(fullMsg);
+                                hasNew = true;
+                            } else {
+                                if (!msgSummary.id) msgSummary.id = msgId;
+                                activeEmailObj.messages.push(msgSummary);
+                                hasNew = true;
+                            }
+                        } catch (err) {
+                            console.error("Single message fetch failed:", err);
+                            if (!msgSummary.id) msgSummary.id = msgId;
+                            activeEmailObj.messages.push(msgSummary);
+                            hasNew = true;
+                        }
+                    }
+                }
+
+                if (hasNew) {
+                    await saveCloudData();
+                    showToast("وصلتك رسالة جديدة!", "success");
+                }
+
+                // Re-render UI
+                list.innerHTML = '';
+                if (activeEmailObj.messages.length > 0) {
+                    if (empty) empty.classList.add('hidden');
+                    
+                    // Sort Newest First
+                    const displayList = [...activeEmailObj.messages]
+                        .sort((a, b) => {
+                            const dateA = new Date(a.date || a.createdAt || a.created_at || 0);
+                            const dateB = new Date(b.date || b.createdAt || b.created_at || 0);
+                            return dateB - dateA;
+                        });
+                    
+                    console.log(`--- DEBUG: Rendering ${displayList.length} messages to UI ---`);
+                    displayList.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = "msg-item glass p-4 rounded-2xl border-transparent hover:border-noser-neon/20 transition-all cursor-pointer flex justify-between items-center group animate-fadeIn mb-2";
+                        const msgId = msg.id || msg.message_id || msg.uid || msg.id_message;
+                        div.dataset.id = msgId;
+                        div.onclick = () => viewMessage(msgId);
+                        div.innerHTML = `<div class="flex-grow"><h5 class="font-bold text-base group-hover:noser-neon">${msg.subject || '(بدون عنوان)'}</h5><div class="text-xs opacity-40">${msg.from}</div></div><div class="text-noser-neon/40 text-lg group-hover:translate-x-[-5px] transition-transform">←</div>`;
+                        list.appendChild(div); // Use appendChild to maintain sorted order
+                    });
+                } else {
+                    if (empty) empty.classList.remove('hidden');
+                }
+            } catch(e) {
+                console.error("Refresh Error:", e);
+                showToast(e.message || "فشل تحديث الرسائل", "error");
+            } finally {
+                if (btn) btn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+            }
+        }
+
+        async function viewMessage(id) {
+            const modal = document.getElementById('msgViewModal');
+            const content = document.getElementById('msgContent');
+            modal.classList.remove('hidden');
+            content.innerHTML = '<div class="flex flex-col items-center justify-center p-20"><div class="animate-spin rounded-full h-12 w-12 border-4 border-noser-dark border-t-noser-neon mb-4"></div><p class="noser-neon font-bold">جاري تحميل محتوى الرسالة...</p></div>';
+            
+            try {
+                const savedMsg = activeEmailObj.messages.find(m => m.id === id);
+                let msg = savedMsg;
+                
+                // If content is missing, fetch it using official path
+                if (!msg || (!msg.html && !msg.text)) {
+                    const encodedInbox = encodeURIComponent(activeEmailObj.address);
+                    const res = await fceFetch(`${API_BASE}/inboxes/${encodedInbox}/messages/${id}`);
+                    if (!res.ok) throw new Error();
+                    const msgData = await res.json();
+                    msg = msgData.data;
+                }
+
+                document.getElementById('msgSubject').textContent = msg.subject || '(بدون عنوان)';
+                document.getElementById('msgFrom').textContent = msg.from;
+                
+                let displayHTML = "";
+                if (msg.otp && msg.otp !== "__DETECTED__") {
+                    displayHTML += `<div class="bg-noser-neon/10 border border-noser-neon/20 p-6 rounded-[2rem] mb-6 text-center animate-pulse">
+                        <div class="text-[10px] font-black opacity-50 mb-2 uppercase tracking-widest">كود التحقق المستخرج</div>
+                        <div class="text-4xl font-black noser-neon tracking-[0.3em] mb-4">${msg.otp}</div>
+                        <button onclick="copyToClipboard('${msg.otp}')" class="bg-noser-neon text-noser-dark px-6 py-2 rounded-xl text-xs font-black touch-active">نسخ الكود 📋</button>
+                    </div>`;
+                }
+
+                if (msg.html) {
+                    displayHTML += `<iframe style="width:100%; height:500px; border:none;" srcdoc="${msg.html.replace(/"/g, '&quot;')}"></iframe>`;
+                } else {
+                    displayHTML += `<pre class="whitespace-pre-wrap p-4 text-slate-900">${msg.text || 'لا يوجد محتوى نصي'}</pre>`;
+                }
+                
+                content.innerHTML = displayHTML;
+            } catch(e) { 
+                content.innerHTML = '<div class="text-center p-20 text-red-500 font-bold">فشل تحميل الرسالة. يرجى المحاولة مرة أخرى.</div>'; 
+            }
+        }
+
+        function showActivationModal() { document.getElementById('activateModal').classList.remove('hidden'); }
+        function closeActivationModal() { document.getElementById('activateModal').classList.add('hidden'); }
+        function showSupportModal() { document.getElementById('supportModal').classList.remove('hidden'); }
+        function closeSupportModal() { document.getElementById('supportModal').classList.add('hidden'); }
+
+        async function submitKey() {
+            const keyInput = document.getElementById('dashKeyInput');
+            const key = keyInput.value.trim().toUpperCase();
+            if (!key) return showToast("يرجى إدخال الكود", "error");
+
+            showToast("جاري التحقق من الكود...", "success");
+
+            try {
+                // Check in Firestore 'keys' collection
+                const keyDoc = await db.collection('keys').doc(key).get();
+                
+                if (keyDoc.exists) {
+                    const keyData = keyDoc.data();
+                    const amount = keyData.value || 0;
+
+                    // 1. Add balance to user
+                    currentUserData.balance += amount;
+                    await saveCloudData();
+
+                    // 2. Delete key from Firestore permanently
+                    await db.collection('keys').doc(key).delete();
+
+                    showToast(`تم التفعيل بنجاح! رصيدك الجديد: ${currentUserData.balance}`, "success");
+                    keyInput.value = '';
+                    closeActivationModal();
+                } else {
+                    showToast("هذا الكود غير صالح أو تم استخدامه من قبل", "error");
+                }
+            } catch (err) {
+                console.error("Key Activation Error:", err);
+                showToast("حدث خطأ أثناء التفعيل، حاول لاحقاً", "error");
+            }
+        }
+
+        function stopPolling() { if (pollingInterval) clearInterval(pollingInterval); }
+        function closeMsgModal() { document.getElementById('msgViewModal').classList.add('hidden'); }
+        function copyDashEmail() {
+            if (!activeEmailObj) return;
+            copyToClipboard(activeEmailObj.address, "تم نسخ الإيميل!");
+        }
+        function copyToClipboard(text, successMsg = "تم النسخ!") {
+            navigator.clipboard.writeText(text).then(() => showToast(successMsg, "success"));
+        }
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        function showToast(msg, type = "success") {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = `${type === "success" ? "bg-noser-neon text-noser-dark" : "bg-red-500 text-white"} px-8 py-5 rounded-[2rem] shadow-[0_10px_40px_rgba(0,0,0,0.5)] mb-3 animate-fadeIn font-black text-sm flex items-center justify-center gap-3 border border-white/10`;
+            t.innerHTML = `<span>${type === "success" ? "✅" : "⚠️"}</span> ${msg}`;
+            c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-20px)'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+    </script>
+</body>
+</html>
